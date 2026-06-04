@@ -1,6 +1,16 @@
 package user;
 
-public class AdminUser extends User{
+import book.Book;
+import book.Library;
+
+import java.time.LocalDateTime;
+import java.util.Scanner;
+
+public class AdminUser extends User {
+
+    private Scanner in = new Scanner(System.in);
+    private Library library = Library.getLibrary();
+
     public AdminUser(Integer userId, String name, String role) {
         super(userId, name, role);
     }
@@ -30,6 +40,21 @@ public class AdminUser extends User{
 
     //上架图书
     public void addBook() {
+        System.out.println("添加书籍操作...");
+
+        in.nextLine();
+        System.out.println("请输入书名：");
+        String title = in.nextLine();
+        System.out.println("请输入作者：");
+        String author = in.nextLine();
+        System.out.println("请输入类别：");
+        String category = in.nextLine();
+        System.out.println("请输入出版年份：");
+        int publishYear = in.nextInt();
+        in.nextLine();
+
+        Book book = new Book(title, author, category, publishYear, LocalDateTime.now());
+        library.addBook(book);
     }
 
     //图书修改 ⽀持修改书名 作者 类别
@@ -38,6 +63,7 @@ public class AdminUser extends User{
 
     //删除书籍
     public void removeBook() {
+        System.out.println("移除图书...");
     }
 
     //统计每本书的借阅次数
