@@ -56,10 +56,10 @@ public class AnalyzingBook {
 
     private static void storeBooks(String[] args) {
         Book[] books = new Book[4];
-        books[0] = new Book("java", "gaobo", "编程", 1994, LocalDateTime.of(2023, 9, 24, 6, 12));
-        books[1] = new Book("mysql", "lisi", "编程", 1999, LocalDateTime.of(2024, 2, 10, 2, 15));
-        books[2] = new Book("php", "gaobo", "编程", 2020, LocalDateTime.of(2023, 9, 23, 5, 22));
-        books[3] = new Book("西游记", "吴承恩", "⼩说", 2024, LocalDateTime.of(2023, 9, 23, 14, 32));
+        books[0] = new Book("java", "gaobo", "编程", 1994, LocalDate.of(2023, 9, 24));
+        books[1] = new Book("mysql", "lisi", "编程", 1999, LocalDate.of(2024, 2, 10));
+        books[2] = new Book("php", "gaobo", "编程", 2020, LocalDate.of(2023, 9, 23));
+        books[3] = new Book("西游记", "吴承恩", "⼩说", 2024, LocalDate.of(2023, 9, 23));
         Library library = Library.getLibrary();
         for (Book book : books) {
             library.addBook(book);

@@ -2,6 +2,8 @@ package book;
 
 import constants.Constants;
 
+import java.util.Objects;
+
 public class PairOfUidAndBookId {
     private Integer bookId;
     private Integer userId;
@@ -14,6 +16,17 @@ public class PairOfUidAndBookId {
         this.userId = userId;
     }
 
+    @Override
+    public boolean equals(Object o) {
+        if (o == null || getClass() != o.getClass()) return false;
+        PairOfUidAndBookId that = (PairOfUidAndBookId) o;
+        return Objects.equals(bookId, that.bookId) && Objects.equals(userId, that.userId);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(bookId, userId);
+    }
 
     @Override
     public String toString() {

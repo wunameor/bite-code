@@ -3,34 +3,36 @@ package book;
 
 import constants.Constants;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 public class Book implements Comparable<Book> {
-    private int bookId;    //书id
+    private Integer bookId;    //书id
     private String title;    //书名
     private String author;    //作者
     private String category;    //类别
-    private int publishYear;    //出版年份
+    private Integer publishYear;    //出版年份
     private boolean isBorrowed;    //借阅状态
-    private int borrowCount;    //借阅次数
-    private LocalDateTime shelfDate; // 上架日期
+    private Integer borrowCount;    //借阅次数
+    private LocalDate shelfDate; // 上架日期
 
 
 
     public Book(String title, String author, String category,
-                int publishYear, LocalDateTime shelfDate) {
+                Integer publishYear, LocalDate shelfDate) {
         this.title = title;
         this.author = author;
         this.category = category;
         this.publishYear = publishYear;
         this.shelfDate = shelfDate;
+        this.borrowCount = 0;
     }
 
-    public int getBookId() {
+    public Integer getBookId() {
         return bookId;
     }
 
-    public void setBookId(int bookId) {
+    public void setBookId(Integer bookId) {
         this.bookId = bookId;
     }
 
@@ -58,11 +60,11 @@ public class Book implements Comparable<Book> {
         this.category = category;
     }
 
-    public int getPublishYear() {
+    public Integer getPublishYear() {
         return publishYear;
     }
 
-    public void setPublishYear(int publishYear) {
+    public void setPublishYear(Integer publishYear) {
         this.publishYear = publishYear;
     }
 
@@ -74,19 +76,19 @@ public class Book implements Comparable<Book> {
         isBorrowed = borrowed;
     }
 
-    public int getBorrowCount() {
-        return borrowCount;
+    public Integer getBorrowCount() {
+        return borrowCount = borrowCount == null ? 0 : borrowCount;
     }
 
-    public void setBorrowCount(int borrowCount) {
-        this.borrowCount = borrowCount;
+    public void setBorrowCount(Integer borrowCount) {
+        this.borrowCount = borrowCount == null ? 0 : borrowCount;
     }
 
-    public LocalDateTime getShelfDate() {
+    public LocalDate getShelfDate() {
         return shelfDate;
     }
 
-    public void setShelfDate(LocalDateTime shelfDate) {
+    public void setShelfDate(LocalDate shelfDate) {
         this.shelfDate = shelfDate;
     }
 
@@ -106,7 +108,7 @@ public class Book implements Comparable<Book> {
 
     @Override
     public int compareTo(Book o) {
-        return 0;
+        return this.getBorrowCount() - o.getBorrowCount();
     }
 
 
@@ -144,7 +146,7 @@ public class Book implements Comparable<Book> {
         }
 
 
-        LocalDateTime dateTime = LocalDateTime.parse(shelfDate);
+        LocalDate dateTime = LocalDate.parse(shelfDate);
 
         Book book = new Book(title, author, category,
                 Integer.parseInt(publishYear), dateTime);

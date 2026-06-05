@@ -28,6 +28,11 @@ public class AnalyzingBorrowedBook {
     }
 
     public void storeObject(PairOfUidAndBookId[] userIdAndBookIdList, String fileName) {
+        if (userIdAndBookIdList == null || fileName == null || fileName.isEmpty()) {
+            return;
+        }
+
+
         StringBuilder userIdAndBookIdJson = new StringBuilder();
         for (PairOfUidAndBookId uidAndBookId : userIdAndBookIdList) {
             if (uidAndBookId == null) break;
