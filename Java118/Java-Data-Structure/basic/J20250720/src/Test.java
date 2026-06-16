@@ -4,8 +4,16 @@ import java.util.List;
 
 public class Test {
 
-    // 其他测试
     public static void main(String[] args) {
+        MySingleLinkedList list = new MySingleLinkedList(new int[]{1,1,1,1});
+        list.display();
+        list.removeAllKey(1);
+        list.display();
+
+    }
+
+    // 其他测试
+    public static void main5(String[] args) {
 
         MySingleLinkedList list = new MySingleLinkedList(new int[]{1,1,2,1,3,4,1});
         System.out.println("useSize = " + list.size());

@@ -157,7 +157,7 @@ public class MySingleLinkedList {
     }
     public void display() {
         if (isEmpty()) {
-            System.out.println("null");
+//            System.out.println("null");
             return;
         }
 
