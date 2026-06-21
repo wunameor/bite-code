@@ -1,0 +1,33 @@
+from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.runnables import RunnableSequence
+from langchain_openai import ChatOpenAI
+
+
+
+# 设置模型
+model = ChatOpenAI(
+    model='deepseek-v4-flash',
+    base_url = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+)
+
+# 定义消息
+messages = [
+    SystemMessage("请把下列的英文翻译为中文"),
+    HumanMessage("Hello world!")
+]
+
+# 发送消息
+# result = model.invoke(messages)
+# print(result)
+
+# 设置输出解析器
+parser = StrOutputParser()
+# print(parser.invoke(result))
+
+# 链式调用
+
+chain = model | parser
+# chain = model.pipe(parser)
+# chain = RunnableSequence(first=model, last=parser)
+print(chain.invoke(messages)) # 只需要执行一次 invoke 即可
