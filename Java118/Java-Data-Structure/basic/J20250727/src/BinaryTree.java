@@ -1,6 +1,4 @@
-import java.util.LinkedList;
-import java.util.Queue;
-import java.util.Stack;
+import java.util.*;
 
 public class BinaryTree {
     public static class TreeNode {
@@ -198,7 +196,35 @@ public class BinaryTree {
     }
 
     // 判断⼀棵树是不是完全⼆叉树
+    public boolean isCompleteTree() {
+        return isCompleteTree(this.root);
+    }
+
     public boolean isCompleteTree(TreeNode root) {
-        return false;
+        Queue<TreeNode> queue = new LinkedList<TreeNode>();
+        queue.add(root);
+
+        // boolean isShowNull = false; // 是否出现 null
+        while (!queue.isEmpty()) {
+            TreeNode node = queue.poll();
+            if (node != null) {
+                queue.add(node.left);
+                queue.add(node.right);
+            } else {
+                // 如果后面还有不为空的，那么就返回 false
+                // isShowNull = true;
+                break;
+            }
+        }
+
+        // 判断是否还有不是 空的节点
+        if (!queue.isEmpty()) {
+            while (!queue.isEmpty()) {
+                if (queue.poll() != null) {
+                    return false;
+                }
+            }
+        }
+        return true;
     }
 }

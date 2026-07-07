@@ -1,5 +1,19 @@
+import java.util.LinkedList;
+import java.util.List;
+
 public class Test {
     public static void main(String[] args) {
+        List<Integer> list = new LinkedList<>();
+        list.add(1);
+        list.add(2);
+        list.add(3);
+        list.add(4);
+        List<Integer> list1 = list.subList(1, -1);
+        System.out.println(list1.isEmpty());
+    }
+
+
+    public static void main1(String[] args) {
         BinaryTree tree = new BinaryTree();
 
         /*
@@ -37,5 +51,26 @@ public class Test {
         System.out.print("levelOrder: ");
         tree.levelOrder();
 
+
+        System.out.println("isCompleteTree: " + tree.isCompleteTree());
+        System.out.println("isCompleteTree: createTree(): " + tree.isCompleteTree(createTree())); // 不符合封装性，仅仅用于测试
+    }
+
+    private static BinaryTree.TreeNode createTree() {
+        BinaryTree.TreeNode A = new BinaryTree.TreeNode('A');
+        BinaryTree.TreeNode B = new BinaryTree.TreeNode('B');
+        BinaryTree.TreeNode C = new BinaryTree.TreeNode('C');
+        BinaryTree.TreeNode D = new BinaryTree.TreeNode('D');
+        BinaryTree.TreeNode E = new BinaryTree.TreeNode('E');
+        BinaryTree.TreeNode F = new BinaryTree.TreeNode('F');
+
+
+//        A.left = B;
+//        A.right = C;
+//        B.left = D;
+//        B.right = F;
+//        C.left = E;
+
+        return A;
     }
 }
