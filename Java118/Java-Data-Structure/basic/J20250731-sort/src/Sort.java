@@ -1,13 +1,19 @@
+import java.util.Stack;
+
 public class Sort {
     /**
      * 插入排序
      * @param array
      */
     public static void insertSort(int[] array) {
-        for (int i = 1; i < array.length; i++) {
+        insertSort(array, 0, array.length - 1);
+    }
+
+    public static void insertSort(int[] array, int start, int end) {
+        for (int i = start + 1; i < end + 1; i++) {
             int j = i - 1;
             int tmp = array[i];
-            for( ; j >= 0; j--) {
+            for( ; j >= start; j--) {
                 // 不要写为 >= 不然就是不稳定的
                 if (array[j] > tmp) {
                     array[j + 1] = array[j];
@@ -105,4 +111,175 @@ public class Sort {
             }
         }
     }
+
+    /**
+     * 冒泡排序
+     * @param array
+     */
+    public static void bubbleSort(int[] array) {
+        for (int i = 0; i < array.length - 1; i++) {
+            boolean isSwap = false;
+            for (int j = 0; j < array.length - 1 - i; j++) {
+                if (array[j] >= array[j + 1]) {
+                    swap(array, j, j + 1);
+                    isSwap = true;
+                }
+            }
+            if (!isSwap) {
+                break;
+            }
+        }
+    }
+
+    /**
+     * 快速排序
+     * @param array
+     */
+    public static void quickSort(int[] array) {
+        quick(array, 0, array.length - 1);
+    }
+
+    private static void quick(int[] array, int start, int end) {
+        // start >= end 就结束了
+        if (start >= end) {
+            return;
+        }
+
+        // 低于一定的数值后 剩下的数据基本有序，适用于插入排序
+        if (end - start <= 15) {
+            insertSort(array, start, end);
+        }
+
+        // 获取三数中中位数的下标并且交换
+        int midIndex = getMidIndex(array, start, end);
+        swap(array, start, midIndex);
+
+        // 排序，然后返回中间值的下标
+        int pivot = partition(array, start, end);
+
+        // 遍历左边与右边
+        quick(array, start, pivot - 1);
+        quick(array, pivot + 1, end);
+    }
+
+    private static int getMidIndex(int[] array, int start, int end) {
+        int mid = (end - start) / 2 + start;
+        if (array[mid] > array[start]) {
+            if (array[end] > array[mid]) {
+                return mid;
+            } else {
+                // array[end] <= array[mid] && array[mid] > array[start]
+                return array[end] > array[start] ? end : start;
+            }
+        } else {
+            // array[mid] <= array[start]
+            if (array[end] > array[start]) {
+                return start;
+            } else {
+                // array[mid] <= array[start] && array[end] <= array[start]
+                return array[mid] > array[end] ? mid : end;
+            }
+        }
+    }
+
+    // hoare 法
+    private static int partition1(int[] array, int left, int right) {
+        int tmp = array[left];
+        int i = left; // 用来存储 left
+
+        while (left < right) {
+            while (left < right && array[right] >= tmp) {
+                right--;
+            }
+
+            while (left < right && array[left] <= tmp) {
+                left++;
+            }
+
+            swap(array, left, right);
+        }
+        // 与开始的交换
+        swap(array, i, left);
+        return left;
+    }
+
+    // 挖坑法
+    private static int partition2(int[] array, int left, int right) {
+        int tmp = array[left];
+
+        while (left < right) {
+            while (left < right && array[right] >= tmp) {
+                right--;
+            }
+            // 右边比较小的覆盖掉左边比较大的
+            array[left] = array[right];
+            while (left < right && array[left] <= tmp) {
+                left++;
+            }
+            // 左边比较大的覆盖掉右边比较小的
+            array[right] = array[left];
+        }
+
+        array[left] = tmp;
+        return left;
+    }
+
+    private static int partition(int[] array, int left, int right) {
+        int prev = left ;
+        int cur = left + 1;
+        while (cur <= right) {
+            if(array[cur] < array[left] && array[++prev] != array[cur]) {
+                swap(array,cur,prev);
+            }
+            cur++;
+        }
+        swap(array,prev,left);
+        return prev;
+    }
+
+    /**
+     * 非递归的快速排序
+     * @param array
+     */
+    public static void quickSortNor(int[] array) {
+        int start = 0;
+        int end = array.length - 1;
+
+        int pivot = partition2(array, start, end);
+
+        Stack<Integer> stack = new Stack<>();
+
+        if (pivot - start > 1) {
+            // 左边有两个及其以上
+            stack.push(pivot - 1);
+            stack.push(start);
+        }
+
+        if (end - pivot > 1) {
+            stack.push(end);
+            stack.push(pivot + 1);
+        }
+
+        while (!stack.isEmpty()) {
+            start = stack.pop();
+            end = stack.pop();
+
+            pivot = partition2(array, start, end);
+
+            if (pivot - start > 1) {
+                // 左边有两个及其以上
+                stack.push(pivot - 1);
+                stack.push(start);
+            }
+
+            if (end - pivot > 1) {
+                stack.push(end);
+                stack.push(pivot + 1);
+            }
+        }
+    }
 }
+
+
+
+
