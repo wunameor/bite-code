@@ -278,6 +278,130 @@ public class Sort {
             }
         }
     }
+
+    /**
+     * 归并排序
+     * @param array
+     */
+    public static void mergeSort(int[] array) {
+        mergeSort(array, 0, array.length - 1);
+    }
+
+    public static void mergeSort(int[] array, int left, int right) {
+        if (left >= right) {
+            return;
+        }
+        int mid = (left + right) / 2;
+
+        // 归
+        mergeSort(array, left, mid);
+        mergeSort(array, mid + 1, right);
+
+        // 并
+        merge(array, left, right);
+    }
+
+    private static void merge(int[] array, int left, int mid, int right) {
+        int[] tmpArray = new int[right - left + 1];
+        int index = 0;
+
+        int s1 = left, e1 = mid, s2 = mid + 1, e2 = right;
+
+        while (s1 <= e1 && s2 <= e2) {
+            // 这里使用 <= 是稳定的，没有等号就是不稳定的
+            if (array[s1] <= array[s2]) {
+                tmpArray[index++] = array[s1++];
+            } else {
+                tmpArray[index++] = array[s2++];
+            }
+        }
+
+        while (s1 <= e1) {
+            // 第一个数组还有元素
+            tmpArray[index++] = array[s1++];
+        }
+
+        while (s2 <= e2) {
+            // 第二个数组还有元素
+            tmpArray[index++] = array[s2++];
+        }
+
+        // 用临时数组的数据覆盖掉原数组的数据
+        for (int i = 0; i < tmpArray.length; i++) {
+            array[i + left] = tmpArray[i];
+        }
+    }
+
+
+    private static void merge(int[] array, int left, int right) {
+        int mid = (right + left) / 2;
+
+        merge(array, left, mid, right);
+    }
+
+    /**
+     * 非递归实现归并排序
+     * @param array
+     */
+    public static void mergeSortNor(int[] array) {
+        int gap = 1; // 用来表示当前有序数组的长度，从小到大归并
+        // 不需要等号
+        while (gap < array.length) {
+            for (int i = 0; i < array.length; i += gap * 2) {
+                int left = i;
+
+                // 防止最后几个，跳过头导致 数组越界
+                int mid = left + gap - 1;
+                if (mid >= array.length) {
+//                    mid = array.length - 1;
+                    break; // 如果左半部分已经触底，说明右半部分元素为 0，而左半部分是不需要排序的，因为已经是有序的了
+                }
+
+                int right = left + gap * 2 - 1;
+                if (right >= array.length) {
+                    right = array.length - 1;
+                }
+
+                // 不能少 mid 这个参数
+                merge(array, left, mid, right);
+            }
+            gap *= 2;
+        }
+    }
+
+
+    /**
+     * 计数排序
+     * @param array
+     */
+    public static void countSort(int[] array) {
+        // 先获取到最大最小值
+        int max = array[0], min = array[0];
+        for (int i = 1; i < array.length; i++) {
+            if (max < array[i]) {
+                max = array[i];
+            } else if (min > array[i]) {
+                min = array[i];
+            }
+        }
+
+        int[] countArray = new int[max - min + 1];
+
+        // 计数
+        for (int i = 0; i < array.length; i++) {
+            int index = array[i] - min;
+            countArray[index]++;
+        }
+
+        // 赋值
+        int index = 0; // array 下标
+        for (int i = 0; i < countArray.length; i++) {
+            while (countArray[i] != 0) {
+                countArray[i]--;
+                array[index++] = i + min;
+            }
+        }
+    }
 }
 
 
