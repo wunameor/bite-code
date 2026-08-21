@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>动态ID属性示例</title>
+    <script>
+        // 增强版ID生成器 
+        function generateDynamicId() {
+            const prefix = "dynamicId_";
+            const timestamp = Date.now().toString(36);
+            const randomStr = Math.random().toString(36).substr(2, 6);
+            return `${prefix}${timestamp}_${randomStr}`;
+        }
+
+        // 使用DOMContentLoaded确保元素存在 
+        document.addEventListener("DOMContentLoaded", () => {
+            const targetElement = document.querySelector("#initialElement");
+            
+            // 方法1：直接修改id属性 
+            targetElement.id = generateDynamicId();
+            
+            // 方法2：使用setAttribute（效果相同） 
+            // targetElement.setAttribute("id", generateDynamicId());
+        });
+    </script>
+</head>
+<body>
+    <!-- 初始元素（ID会被动态修改） -->
+    <div id="initialElement" class="demo-box">
+        此元素的ID将在每次加载时变化
+    </div>
+
+    <!-- 验证区域 -->
+    <script>
+        // 在后续脚本中验证ID是否已变更 
+        document.addEventListener("DOMContentLoaded", () => {
+            setTimeout(() => {
+                const currentElement = document.querySelector(".demo-box");
+                console.log("当前元素ID:", currentElement.id);
+            }, 100);
+        });
+    </script>
+</body>
+</html>

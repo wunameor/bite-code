@@ -5,8 +5,12 @@ import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
 
+import java.nio.file.Path;
+import java.nio.file.Paths;
+
 public class DriverUtil {
     public static WebDriver start(String name) {
+        if ("".equals(name)) name = FileUtil.getLocalPageUrl("");
         // 打开驱动
         WebDriverManager.chromedriver().setup();
 
@@ -27,4 +31,5 @@ public class DriverUtil {
     public static void close(WebDriver driver) {
         driver.quit();
     }
+
 }
