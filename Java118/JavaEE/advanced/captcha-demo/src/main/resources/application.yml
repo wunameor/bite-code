@@ -1,0 +1,8 @@
+spring:
+  application:
+    name: captcha-demo
+
+captcha:
+  width: 200
+  height: 100
+  ttl: 300_000 # 5 \u5206\u949F
