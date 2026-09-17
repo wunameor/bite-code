@@ -6,3 +6,15 @@ captcha:
   width: 200
   height: 100
   ttl: 300_000 # 5 \u5206\u949F
+
+logging:
+  level:
+    root: info
+    com.wunamor.captchademo: trace
+  file:
+    name: log/myLog.log # name 的优先级比 path 高
+    path: log/myLog2.log # 这个是在 log/myLog2.log/ 这个目录下存储
+  logback:
+    rollingpolicy:
+      max-file-size: 10MB
+      file-name-pattern: ${LOG_FILE}.%d{yyyy-MM-dd}.%i.log
