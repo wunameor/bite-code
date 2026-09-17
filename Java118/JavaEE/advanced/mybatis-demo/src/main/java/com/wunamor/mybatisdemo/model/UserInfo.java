@@ -10,10 +10,10 @@ public class UserInfo {
     private int id;
     private String username;
     private String password;
-    private byte age;
-    private byte gender;
+    private int age;
+    private int gender;
     private String phone;
-    private byte deleteFlag;
-    private Date creatTime;
+    private int deleteFlag;
+    private Date createTime;
     private Date updateTime;
 }

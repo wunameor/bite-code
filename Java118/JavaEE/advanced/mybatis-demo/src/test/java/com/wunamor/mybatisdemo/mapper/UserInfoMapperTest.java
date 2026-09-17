@@ -5,13 +5,12 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
-import java.util.Arrays;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest
-class UserMapperTest {
+class UserInfoMapperTest {
 
     @Autowired
     private UserMapper userMapper;
@@ -60,13 +59,13 @@ class UserMapperTest {
 
     @Test
     void deleteUserById() {
-        System.out.println(userMapper.deleteUserById(6));
+        System.out.println(userMapper.deleteUserById(7));
     }
 
     @Test
     void updateUserById() {
         UserInfo userInfo = new UserInfo();
-        userInfo.setUsername("77777dwa");
+        userInfo.setUsername("77773121237dwa");
         userInfo.setId(5);
         System.out.println(userMapper.updateUserById(userInfo));
     }
