@@ -1,8 +1,7 @@
-package com.wunamor.springmvcproject;
+package com.wunamor.springmvcproject.controller;
 
 
 import jakarta.servlet.http.HttpSession;
-import org.springframework.boot.web.server.servlet.Session;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;

@@ -1,4 +1,4 @@
-package com.wunamor.springmvcproject;
+package com.wunamor.springmvcproject.controller;
 
 
 import org.springframework.web.bind.annotation.RequestMapping;

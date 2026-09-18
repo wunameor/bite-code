@@ -1,6 +1,9 @@
-package com.wunamor.springmvcproject;
+package com.wunamor.springmvcproject.controller;
 
 
+import com.wunamor.springmvcproject.model.Message;
+import com.wunamor.springmvcproject.service.MessageService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 
@@ -13,9 +16,13 @@ public class MessageController {
 
     private List<Message> messageList = new ArrayList<>();
 
+    @Autowired
+    private MessageService messageService;
+
     @GetMapping("/getList")
     public List<Message> getList() {
-        return messageList;
+//        return messageList;
+        return messageService.getList();
     }
 
     @PostMapping(value = "/publish", produces = "application/json")
@@ -26,7 +33,8 @@ public class MessageController {
             return "{\"ok\": 0}";
         }
 
-        messageList.add(message);
+        Integer result = messageService.insertMessage(message);
+//        messageList.add(message);
 
         return "{\"ok\": 1}";
     }

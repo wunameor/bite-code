@@ -1,4 +1,4 @@
-package com.wunamor.springmvcproject;
+package com.wunamor.springmvcproject.model;
 
 import lombok.Data;
 
