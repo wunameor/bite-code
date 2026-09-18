@@ -7,13 +7,13 @@ import java.util.Date;
 
 @Data
 public class UserInfo {
-    private int id;
+    private Integer id;
     private String username;
     private String password;
-    private int age;
-    private int gender;
+    private Integer age;
+    private Integer gender;
     private String phone;
-    private int deleteFlag;
+    private Integer deleteFlag;
     private Date createTime;
     private Date updateTime;
 }

@@ -28,6 +28,9 @@ public interface UserMapper {
     @Select("select * from user_info where username = #{userInfo.username} and password = #{userInfo.password}")
     public UserInfo getUserByUsernameAndPassword2(@Param("userInfo") UserInfo userInfo);
 
+    @Select("select * from user_info where username like concat('%',#{username}, '%')")
+    public List<UserInfo> getUserByLikeName(String username);
+
     @Options(useGeneratedKeys = true, keyProperty = "id")
     @Insert("insert into user_info(username, password, age) values (#{username}, #{password}, #{age})")
     public Integer insertUser(UserInfo userInfo);

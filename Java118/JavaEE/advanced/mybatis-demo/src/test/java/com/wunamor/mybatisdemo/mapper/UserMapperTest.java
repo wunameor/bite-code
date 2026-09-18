@@ -50,12 +50,14 @@ class UserMapperTest {
 
     @Test
     void insertUser() {
-        UserInfo userInfo = new UserInfo();
-        userInfo.setUsername("lisi");
-        userInfo.setPassword("lisi");
-        userInfo.setAge(19);
-        System.out.println(userMapper.insertUser(userInfo));
-        System.out.println("userInfo id: " + userInfo.getId());
+        for (int i = 0; i < 5; i++) {
+            UserInfo userInfo = new UserInfo();
+            userInfo.setUsername("lisi");
+            userInfo.setPassword("lisi");
+            userInfo.setAge(19);
+            System.out.println(userMapper.insertUser(userInfo));
+            System.out.println("userInfo id: " + userInfo.getId());
+        }
     }
 
     @Test
@@ -69,5 +71,10 @@ class UserMapperTest {
         userInfo.setUsername("77777dwa");
         userInfo.setId(5);
         System.out.println(userMapper.updateUserById(userInfo));
+    }
+
+    @Test
+    void getUserByLikeName() {
+        System.out.println(userMapper.getUserByLikeName("lisi"));
     }
 }

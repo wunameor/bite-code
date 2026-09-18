@@ -1,6 +1,18 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.wunamor.mybatisdemo.mapper.UserInfoMapper">
+    <resultMap id="BaseMap" type="com.wunamor.mybatisdemo.model.UserInfo">
+        <id column="id" property="id"/>
+        <result column="delete_flag" property="deleteFlag" />
+        <result column="create_time" property="createTime" />
+        <result column="update_time" property="updateTime" />
+    </resultMap>
+
+    <sql id="selectAll">
+        select * from user_info
+    </sql>
+
+
     <insert id="insertUser" useGeneratedKeys="true" keyProperty="id">
         insert into user_info(username, password, age) values (#{username}, #{password}, #{age})
     </insert>
@@ -9,11 +21,32 @@
         update user_info set username = #{username} where id = #{id}
     </update>
 
+    <update id="updateUserInfo">
+        update user_info
+        <set>
+            <if test="username != null">username = #{username},</if>
+            <if test="age != null">age = #{age},</if>
+            <if test="password != null">password = #{password}</if>
+        </set>
+        where id = #{id} -- 这里一般不使用 where 标签，防止没有闯入 id 导致更新全部
+    </update>
+
     <delete id="deleteUserById">
         delete from user_info where id = #{id}
     </delete>
 
+    <delete id="deleteBatchById">
+        delete from user_info where id in
+        <foreach collection="ids" open="(" close=")" separator="," item="id">
+            #{id}
+        </foreach>
+    </delete>
+
     <select id="getList" resultType="com.wunamor.mybatisdemo.model.UserInfo">
+        select * from user_info
+    </select>
+
+    <select id="getList2" resultMap="BaseMap">
         select * from user_info
     </select>
 
@@ -29,5 +62,30 @@
         select * from user_info where username = #{userInfo.username} and password = #{userInfo.password}
     </select>
 
+    <select id="selectUserByCondition" resultType="com.wunamor.mybatisdemo.model.UserInfo">
+<!--        select * from user_info-->
+<!--        where-->
+<!--        <trim suffixOverrides="and">-->
+<!--            <if test="age != null">age = #{age} and</if>-->
+<!--            <if test="username != null">username = #{username} and</if>-->
+<!--            <if test="gender != null">gender = #{gender}</if>-->
+<!--        </trim>-->
+
+<!--        select * from user_info-->
+<!--        where-->
+<!--        <if test="age != null">age = #{age} and</if>-->
+<!--        <if test="username != null">username = #{username} and</if>-->
+<!--        <if test="gender != null">gender = #{gender} and</if>-->
+<!--        1 = 1-->
+
+--         select * from user_info
+        <include refid="selectAll"></include>
+        <where>
+            <!-- 不能把 and 写在后面，因为 where 只会删除它后面的第一个 and -->
+            <if test="age != null">and age = #{age} </if>
+            <if test="username != null">and username = #{username} </if>
+            <if test="gender != null">and gender = #{gender}</if>
+        </where>
+    </select>
 
 </mapper>

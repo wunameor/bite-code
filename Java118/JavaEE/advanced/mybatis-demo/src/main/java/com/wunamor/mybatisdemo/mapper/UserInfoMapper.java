@@ -11,7 +11,7 @@ public interface UserInfoMapper {
     public List<UserInfo> getList();
 
 
-//    public List<UserInfo> getList2();
+    public List<UserInfo> getList2();
 
     public List<UserInfo> getListById(Integer id);
 
@@ -24,4 +24,10 @@ public interface UserInfoMapper {
     public Integer deleteUserById(Integer id);
 
     public Integer updateUserById(UserInfo userInfo);
+
+    public List<UserInfo> selectUserByCondition(UserInfo userInfo);
+
+    public Integer updateUserInfo(UserInfo userInfo);
+
+    public Integer deleteBatchById(List<Integer> ids);
 }

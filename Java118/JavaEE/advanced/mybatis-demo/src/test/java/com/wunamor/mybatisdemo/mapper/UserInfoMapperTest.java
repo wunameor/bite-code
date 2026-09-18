@@ -7,13 +7,11 @@ import org.springframework.boot.test.context.SpringBootTest;
 
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.*;
-
 @SpringBootTest
 class UserInfoMapperTest {
 
     @Autowired
-    private UserMapper userMapper;
+    private UserInfoMapper userMapper;
 
     @Test
     void getList() {
@@ -69,4 +67,30 @@ class UserInfoMapperTest {
         userInfo.setId(5);
         System.out.println(userMapper.updateUserById(userInfo));
     }
+
+    @Test
+    void selectUserByCondition() {
+        UserInfo userInfo = new UserInfo();
+        userInfo.setUsername("lisi");
+        userInfo.setAge(18);
+//        userInfo.setGender(1);
+        System.out.println(userMapper.selectUserByCondition(userInfo));
+    }
+
+    @Test
+    void updateUserInfo() {
+        UserInfo userInfo = new UserInfo();
+        userInfo.setId(8);
+        userInfo.setUsername("lisi123123");
+//        userInfo.setPassword("lisi123");
+        userInfo.setAge(18);
+        System.out.println(userMapper.updateUserInfo(userInfo));
+    }
+
+    @Test
+    void deleteBatchById() {
+        System.out.println(userMapper.deleteBatchById(List.of(11,13,12,9)));
+    }
+
+
 }
