@@ -1,0 +1,25 @@
+package com.wunamor.bookdemo.mapper;
+
+import com.wunamor.bookdemo.model.BookInfo;
+import com.wunamor.bookdemo.model.PageRequest;
+import org.apache.ibatis.annotations.Insert;
+import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Select;
+
+import java.util.List;
+
+@Mapper
+public interface BookMapper {
+
+
+    @Select("select count(1) from book_info where status <> 0")
+    int getTotalCount();
+
+
+    @Select("select * from book_info where status <> 0 limit #{offset}, #{size}")
+    List<BookInfo> getBookList(PageRequest pageRequest);
+
+    @Insert("insert into book_info(book_name, author, count, price, publish, status) values " +
+            "(#{bookName}, #{author}, #{count}, #{price}, #{publish}, #{status})")
+    Integer addBook(BookInfo bookInfo);
+}

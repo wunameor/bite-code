@@ -3,6 +3,7 @@ package com.wunamor.bookdemo.model;
 import lombok.Data;
 
 import java.math.BigDecimal;
+import java.util.Date;
 
 @Data
 public class BookInfo {
@@ -20,6 +21,8 @@ public class BookInfo {
     private String publish;
     //状态 0-⽆效 1-允许借阅 2-不允许借阅
     private Integer status;
+    private Date createTime;
+    private Date updateTime;
 
     // 实际开发中是不使用这样的，这个仅仅是用来表示
     private String statusCN;

@@ -1,6 +1,11 @@
 package com.wunamor.bookdemo.service;
 
+import com.wunamor.bookdemo.enums.BookStatusEnum;
+import com.wunamor.bookdemo.mapper.BookMapper;
 import com.wunamor.bookdemo.model.BookInfo;
+import com.wunamor.bookdemo.model.PageRequest;
+import com.wunamor.bookdemo.model.PageResponse;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -10,6 +15,28 @@ import java.util.Random;
 
 @Service
 public class BookService {
+
+    @Autowired
+    private BookMapper bookMapper;
+
+
+    public PageResponse<BookInfo> getListByPage(PageRequest pageRequest) {
+        int count = bookMapper.getTotalCount();
+        if (count == 0) {
+            return new PageResponse<>(0);
+        }
+
+        // 获取图书列表
+        List<BookInfo> books = bookMapper.getBookList(pageRequest);
+
+        // 转换状态
+        for (BookInfo book : books) {
+            book.setStatusCN(BookStatusEnum.getNameByCode(book.getStatus()));
+        }
+
+        return new PageResponse<>(count, books);
+    }
+
     public List<BookInfo> getList() {
         List<BookInfo> books = getDao();
         for (BookInfo book : books) {
@@ -19,7 +46,7 @@ public class BookService {
         return books;
     }
 
-    // 这个是 Mock 元素，非真真实的
+    // 这个是 Mock 元素，非真真实的 而且应该放在 dao 层
     private List<BookInfo> getDao() {
         int len = 15;
         List<BookInfo> list = new ArrayList<>(len);
@@ -35,5 +62,9 @@ public class BookService {
             list.add(bookInfo);
         }
         return list;
+    }
+
+    public void addBook(BookInfo bookInfo) {
+        Integer result = bookMapper.addBook(bookInfo);
     }
 }
