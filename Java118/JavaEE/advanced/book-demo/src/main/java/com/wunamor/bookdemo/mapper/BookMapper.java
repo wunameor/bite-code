@@ -22,4 +22,12 @@ public interface BookMapper {
     @Insert("insert into book_info(book_name, author, count, price, publish, status) values " +
             "(#{bookName}, #{author}, #{count}, #{price}, #{publish}, #{status})")
     Integer addBook(BookInfo bookInfo);
+
+
+    Integer batchDeleteBookByIds(List<Integer> bookIds);
+
+    @Select("select * from book_info where id = #{bookId}")
+    BookInfo getBookById(Integer bookId);
+
+    Boolean updateBook(BookInfo bookInfo);
 }

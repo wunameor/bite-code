@@ -11,5 +11,6 @@ import java.util.List;
 @RequiredArgsConstructor
 public class PageResponse<T> {
     private final int totalCount;
+    private final int currentPage;
     private List<T> pages;
 }
