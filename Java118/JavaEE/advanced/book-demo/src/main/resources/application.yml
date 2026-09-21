@@ -16,7 +16,7 @@ mybatis:
   # \u8BBE\u7F6E Mybatis \u7684 xml \u4FDD\u5B58\u8DEF\u5F84
   mapper-locations: classpath:mapper/*Mapper.xml
   configuration:
-    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl  # \u914D\u7F6E\u6253\u5370 MyBatis \u6267\u884C\u7684 SQL
+#    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl  # \u914D\u7F6E\u6253\u5370 MyBatis \u6267\u884C\u7684 SQL
     map-underscore-to-camel-case: true  #\u81EA\u52A8\u9A7C\u5CF0\u8F6C\u6362
 
 logging:

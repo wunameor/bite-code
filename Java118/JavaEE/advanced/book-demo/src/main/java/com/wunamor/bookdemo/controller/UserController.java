@@ -2,6 +2,7 @@ package com.wunamor.bookdemo.controller;
 
 import com.wunamor.bookdemo.service.BookService;
 import com.wunamor.bookdemo.service.UserService;
+import jakarta.servlet.http.HttpSession;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.util.StringUtils;
@@ -18,13 +19,13 @@ public class UserController {
     private UserService userService;
 
     @PostMapping("/login")
-    public Boolean login(String name, String password) {
+    public Boolean login(String name, String password, HttpSession session) {
         log.info("用户登录：name: {}", name);
         if (!StringUtils.hasText(name) || !StringUtils.hasText(password)) {
             log.warn("用户登录-用户名或密码错误: {}", name);
             return false;
         }
 
-        return userService.login(name, password);
+        return userService.login(name, password, session);
     }
 }
