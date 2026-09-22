@@ -37,6 +37,10 @@ public class Result<T> {
         return fail(resultCodeEnum.getCode(), resultCodeEnum.getMsg(), null);
     }
 
+    public static <T> Result<T> fail(T data) {
+        return fail(ResultCodeEnum.FAIL.getCode(), ResultCodeEnum.FAIL.getMsg(), data);
+    }
+
     public static <T> Result<T> fail(int code, String msg, T data) {
         return new Result<>(code, msg, data);
     }
