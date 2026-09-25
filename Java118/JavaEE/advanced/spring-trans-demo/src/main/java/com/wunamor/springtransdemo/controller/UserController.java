@@ -1,6 +1,9 @@
 package com.wunamor.springtransdemo.controller;
 
 
+import com.wunamor.springtransdemo.model.LogInfo;
+import com.wunamor.springtransdemo.model.UserInfo;
+import com.wunamor.springtransdemo.service.LogService;
 import com.wunamor.springtransdemo.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
@@ -13,6 +16,9 @@ public class UserController {
 
     @Autowired
     private UserService userService;
+
+    @Autowired
+    private LogService logService;
 
     @Transactional
     @RequestMapping("/insertUser")
@@ -41,5 +47,13 @@ public class UserController {
             e.printStackTrace();
         }
         return "执行成功";
+    }
+
+    @Transactional
+    @RequestMapping("/insertUser4")
+    public String insertUser4(UserInfo userInfo) {
+        userService.insertUser(userInfo.getUserName(), userInfo.getPassword());
+        logService.insertLog(new LogInfo(userInfo.getUserName(), "用户注册成功"));
+        return "user register success";
     }
 }

@@ -4,6 +4,7 @@ import com.wunamor.springtransdemo.core.model.BaseModel;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
+import org.springframework.transaction.annotation.Transactional;
 
 @EqualsAndHashCode(callSuper = true)
 @Data
