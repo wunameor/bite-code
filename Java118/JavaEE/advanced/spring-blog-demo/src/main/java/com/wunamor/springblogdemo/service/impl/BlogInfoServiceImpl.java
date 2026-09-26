@@ -4,8 +4,8 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.spring.service.impl.ServiceImpl;
 import com.wunamor.springblogdemo.common.constants.Constant;
 import com.wunamor.springblogdemo.pojo.entity.BlogInfo;
-import com.wunamor.springblogdemo.pojo.vo.BlogDetailVO;
-import com.wunamor.springblogdemo.pojo.vo.BlogInfoOfListVO;
+import com.wunamor.springblogdemo.pojo.vo.blog.BlogDetailVO;
+import com.wunamor.springblogdemo.pojo.vo.blog.BlogOfListVO;
 import com.wunamor.springblogdemo.service.BlogInfoService;
 import com.wunamor.springblogdemo.mapper.BlogInfoMapper;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,12 +26,12 @@ public class BlogInfoServiceImpl extends ServiceImpl<BlogInfoMapper, BlogInfo>
     private BlogInfoMapper blogInfoMapper;
 
     @Override
-    public List<BlogInfoOfListVO> getList() {
+    public List<BlogOfListVO> getList() {
         List<BlogInfo> blogInfos = blogInfoMapper.selectList(new LambdaQueryWrapper<BlogInfo>()
                 .eq(BlogInfo::getDeleteFlag, Constant.NOT_DELETED)
         );
 
-        return blogInfos.stream().map(BlogInfoOfListVO::create).toList();
+        return blogInfos.stream().map(BlogOfListVO::create).toList();
     }
 
     @Override
@@ -39,6 +39,13 @@ public class BlogInfoServiceImpl extends ServiceImpl<BlogInfoMapper, BlogInfo>
         BlogInfo blogInfo = blogInfoMapper.selectById(blogId);
         BlogDetailVO blogDetailVO = BlogDetailVO.create(blogInfo);
         return blogDetailVO;
+    }
+
+    @Override
+    public BlogInfo selectByBlogId(Integer blogId) {
+        return blogInfoMapper.selectOne(new LambdaQueryWrapper<BlogInfo>()
+                .eq(BlogInfo::getDeleteFlag, Constant.NOT_DELETED)
+                .eq(BlogInfo::getId, blogId));
     }
 }
 

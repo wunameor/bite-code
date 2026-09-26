@@ -1,12 +1,10 @@
 package com.wunamor.springblogdemo.controller;
 
-import com.wunamor.springblogdemo.common.exception.BlogException;
-import com.wunamor.springblogdemo.pojo.vo.BlogDetailVO;
-import com.wunamor.springblogdemo.pojo.vo.BlogInfoOfListVO;
+import com.wunamor.springblogdemo.pojo.vo.blog.BlogDetailVO;
+import com.wunamor.springblogdemo.pojo.vo.blog.BlogOfListVO;
 import com.wunamor.springblogdemo.service.BlogInfoService;
 import jakarta.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
-import org.jspecify.annotations.NonNull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -23,7 +21,7 @@ public class BlogController {
     private BlogInfoService blogInfoService;
 
     @GetMapping("/getList")
-    public List<BlogInfoOfListVO> getList() {
+    public List<BlogOfListVO> getList() {
         return blogInfoService.getList();
     }
 

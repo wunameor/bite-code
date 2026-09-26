@@ -41,7 +41,29 @@
     <script src="js/jquery.min.js"></script>
     <script>
         function login() {
-            location.assign("blog_list.html");
+            // location.assign("blog_list.html");
+
+            $.ajax({url: "/user/login",
+                type: "post",
+                contentType: "application/json;charset=UTF-8",
+                data: JSON.stringify({
+                    "userName": $("#username").val(),
+                    "password": $("#password").val()
+                }),
+                success: (result) => {
+
+                    if (result != null && result.code === 2000
+                        && result.data != null) {
+                        let resultInfo = result.data;
+                        localStorage.setItem("user_token", resultInfo.token);
+                        localStorage.setItem("loginUserId", resultInfo.id);
+                        location.href = "blog_list.html";
+                    } else {
+                        alert(result.msg)
+                    }
+                }
+
+            })
         }
     </script>
 </body>

@@ -1,7 +1,7 @@
 package com.wunamor.springblogdemo.common.advice;
 
 
-import com.wunamor.springblogdemo.pojo.response.Result;
+import com.wunamor.springblogdemo.common.pojo.response.Result;
 import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.MethodParameter;

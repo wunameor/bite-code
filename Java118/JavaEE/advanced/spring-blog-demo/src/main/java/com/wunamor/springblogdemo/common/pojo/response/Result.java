@@ -1,4 +1,4 @@
-package com.wunamor.springblogdemo.pojo.response;
+package com.wunamor.springblogdemo.common.pojo.response;
 
 
 import com.wunamor.springblogdemo.common.enums.ResultCodeEnums;
@@ -22,12 +22,21 @@ public class Result<T> {
         this(resultCodeEnums.getCode(), resultCodeEnums.getMsg(), data);
     }
 
+    public Result(int code, String msg) {
+        this.code = code;
+        this.msg = msg;
+    }
+
     public static <T> Result<T> ok(T data) {
         return new Result<>(ResultCodeEnums.SUCCESS, data);
     }
 
     public static <T> Result<T> fail(ResultCodeEnums resultCodeEnums, T data) {
         return new Result<>(resultCodeEnums, data);
+    }
+
+    public static <T> Result<T> fail(int code, String msg) {
+        return new Result<>(code, msg);
     }
 
     public static <T> Result<T> fail(ResultCodeEnums resultCodeEnums) {
@@ -39,6 +48,6 @@ public class Result<T> {
     }
 
     public static <T> Result<T> fail(String msg) {
-        return new Result<>(ResultCodeEnums.FAIL.getCode(), msg, null);
+        return new Result<>(ResultCodeEnums.FAIL.getCode(), msg);
     }
 }

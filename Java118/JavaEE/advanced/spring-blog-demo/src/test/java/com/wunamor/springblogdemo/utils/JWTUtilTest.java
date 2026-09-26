@@ -1,6 +1,6 @@
 package com.wunamor.springblogdemo.utils;
 
-import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.*;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import org.junit.jupiter.api.Test;
@@ -16,7 +16,7 @@ public class JWTUtilTest {
 
     private final SecretKey secretKey = Keys.hmacShaKeyFor(Decoders.BASE64.decode(secretString));
 
-    private final long Expiration = 1000 * 60 * 60;
+    private final long Expiration = 7 * 24 * 1000 * 60 * 60; // 7 天
 
     @Test
     public void test1() {
@@ -32,5 +32,16 @@ public class JWTUtilTest {
                 .signWith(secretKey) //签名算法
                 .compact();
         System.out.println(result);
+    }
+
+    @Test
+    public void parse() {
+        String token = "eyJhbGciOiJIUzI1NiJ9.eyJuYW1lIjoibGlzaSIsImlkIjoxLCJpYXQiOjE3OTA0MTE4ODcsImV4cCI6MTc5MTAxNjY4N30.lNGjeQu2vTYVGsgcRWKFwtmXzpbAGLJXt5r3a_87kOs";
+
+        JwtParser jwtParser = Jwts.parserBuilder().setSigningKey(secretKey).build();
+        // 使用 parseClaimsJws 而不是 parseClaimsJwt
+        Claims body = jwtParser.parseClaimsJws(token).getBody();
+        System.out.println(body);
+
     }
 }

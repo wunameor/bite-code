@@ -1,7 +1,6 @@
-package com.wunamor.springblogdemo.pojo.vo;
+package com.wunamor.springblogdemo.pojo.vo.blog;
 
 import com.wunamor.springblogdemo.common.constants.Constant;
-import com.wunamor.springblogdemo.common.exception.BlogException;
 import com.wunamor.springblogdemo.pojo.entity.BlogInfo;
 import lombok.Data;
 import org.springframework.beans.BeanUtils;
@@ -9,7 +8,7 @@ import org.springframework.beans.BeanUtils;
 import java.util.Date;
 
 @Data
-public class BlogInfoOfListVO {
+public class BlogOfListVO {
     private Integer id;
     private String title;
     private String content;
@@ -23,12 +22,12 @@ public class BlogInfoOfListVO {
         return content.length() < Constant.BLOG_SUB_LENGTH ? content : content.substring(Constant.BLOG_SUB_LENGTH);
     }
 
-    public static BlogInfoOfListVO create(BlogInfo blogInfo) {
+    public static BlogOfListVO create(BlogInfo blogInfo) {
         if (blogInfo == null) {
-            return new BlogInfoOfListVO();
+            return new BlogOfListVO();
         }
-        BlogInfoOfListVO blogInfoOfListVO = new BlogInfoOfListVO();
-        BeanUtils.copyProperties(blogInfo, blogInfoOfListVO);
-        return blogInfoOfListVO;
+        BlogOfListVO blogOfListVO = new BlogOfListVO();
+        BeanUtils.copyProperties(blogInfo, blogOfListVO);
+        return blogOfListVO;
     }
 }

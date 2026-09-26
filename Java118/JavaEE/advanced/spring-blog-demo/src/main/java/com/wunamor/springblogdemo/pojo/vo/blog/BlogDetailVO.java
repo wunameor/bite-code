@@ -1,7 +1,5 @@
-package com.wunamor.springblogdemo.pojo.vo;
+package com.wunamor.springblogdemo.pojo.vo.blog;
 
-import com.wunamor.springblogdemo.common.constants.Constant;
-import com.wunamor.springblogdemo.common.exception.BlogException;
 import com.wunamor.springblogdemo.pojo.entity.BlogInfo;
 import lombok.Data;
 import org.springframework.beans.BeanUtils;

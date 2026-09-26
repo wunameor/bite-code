@@ -11,6 +11,8 @@ public enum ResultCodeEnums {
 
 
     USER_NO_LOGIN(3100, "用户未登录，请登录"),
+    USER_USER_NAME_ERROR(3101, "用户名不正确"),
+    USER_PASSWORD_ERROR(3102, "密码不正确"),
     ;
     private final int code;
     private final String msg;
