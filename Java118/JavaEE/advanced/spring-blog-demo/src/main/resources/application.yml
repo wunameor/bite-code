@@ -1,8 +1,8 @@
 spring:
   application:
-    name: spring-trans-demo
+    name: spring-blog-demo
   datasource:
-    url: jdbc:mysql://127.0.0.1:3306/trans_test?characterEncoding=utf8&useSSL=false
+    url: jdbc:mysql://127.0.0.1:3306/java_blog_spring?characterEncoding=utf8&useSSL=false
     username: root
     password: "123456"
     driver-class-name: com.mysql.cj.jdbc.Driver
@@ -13,3 +13,14 @@ mybatis:
   configuration:
     log-impl: org.apache.ibatis.logging.stdout.StdOutImpl  # \u914D\u7F6E\u6253\u5370 MyBatis \u6267\u884C\u7684 SQL
     map-underscore-to-camel-case: true  #\u81EA\u52A8\u9A7C\u5CF0\u8F6C\u6362
+
+logging:
+  file:
+    name: logs/spring-blog.log
+  logback:
+    rollingpolicy:
+      max-file-size: 10MB
+      file-name-pattern: ${LOG_FILE}.%d{yyyy-MM-dd}.%i
+  level:
+    root: info
+#    com.example.demo: debug
