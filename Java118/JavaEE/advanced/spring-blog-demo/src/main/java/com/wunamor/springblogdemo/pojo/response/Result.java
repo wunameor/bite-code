@@ -38,7 +38,7 @@ public class Result<T> {
         return new Result<>(ResultCodeEnums.FAIL, null);
     }
 
-    public static <T> Result<T> fail(T data) {
-        return new Result<>(ResultCodeEnums.FAIL, data);
+    public static <T> Result<T> fail(String msg) {
+        return new Result<>(ResultCodeEnums.FAIL.getCode(), msg, null);
     }
 }

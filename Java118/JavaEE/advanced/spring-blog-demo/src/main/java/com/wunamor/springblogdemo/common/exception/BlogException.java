@@ -14,6 +14,7 @@ public class BlogException extends RuntimeException {
     }
 
     public BlogException(String msg) {
+        this.code = ResultCodeEnums.FAIL.getCode();
         this.msg = msg;
     }
 }

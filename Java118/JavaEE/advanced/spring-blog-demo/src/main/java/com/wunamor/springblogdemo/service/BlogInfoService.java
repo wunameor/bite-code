@@ -2,6 +2,10 @@ package com.wunamor.springblogdemo.service;
 
 import com.wunamor.springblogdemo.pojo.entity.BlogInfo;
 import com.baomidou.mybatisplus.spring.service.IService;
+import com.wunamor.springblogdemo.pojo.vo.BlogDetailVO;
+import com.wunamor.springblogdemo.pojo.vo.BlogInfoOfListVO;
+
+import java.util.List;
 
 /**
 * @author Study
@@ -10,4 +14,7 @@ import com.baomidou.mybatisplus.spring.service.IService;
 */
 public interface BlogInfoService extends IService<BlogInfo> {
 
+    List<BlogInfoOfListVO> getList();
+
+    BlogDetailVO getBlogDetail(Integer blogId);
 }
