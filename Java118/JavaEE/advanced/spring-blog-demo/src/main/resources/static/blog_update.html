@@ -30,32 +30,67 @@
         </div>
         <!-- markdown 插件 html代码 -->
         <div id="editor">
-            <textarea style="display:none;" id="content">##在这里写下一篇博客</textarea>
+            <textarea style="display:none;" id="content"></textarea>
         </div>
     </div>
 
+    <link rel="stylesheet" href="blog-editormd/css/editormd.css" />
     <script src="js/jquery.min.js"></script>
-    <script src="blog-editormd/editormd.min.js"></script>
+    <script src="blog-editormd/lib/marked.min.js"></script>
+    <script src="blog-editormd/lib/prettify.min.js"></script>
+    <script src="blog-editormd/editormd.js"></script>
     <script src="js/common.js"></script>
     <script type="text/javascript">
 
+        var editor = null;
+        var blogContent = null;
+
         $(function () {
-            var editor = editormd("editor", {
-                width  : "100%",
-                height : "550px",
-                path: "blog-editormd/lib/"
-                // onload: function () {
-                //     this.watch();
-                //     this.setMarkdown(content);
-                // }
+            editor = editormd("editor", {
+                width: "100%",
+                height: "550px",
+                path: "blog-editormd/lib/",
+                onload: function () {
+                    if (blogContent != null) {
+                        this.setMarkdown(blogContent);
+                    }
+                }
             });
         });
-        
+
         function submit() {
-           
+            $.ajax({
+                url: "/blog/update",
+                type: "post",
+                contentType: "application/json",
+                data: JSON.stringify({
+                    id: new URLSearchParams(location.search).get('blogId'),
+                    title: $("#title").val(),
+                    content: $("#content").val()
+                }),
+                success: (result) => {
+                    if (result != null && result.data && result.code === 2000) {
+                        location.href = "blog_list.html"
+                    }
+                }
+            })
         }
         function getBlogInfo() {
-            
+            $.ajax({
+                url: `/blog/getBlogDetail${location.search}`,
+                type: "get",
+                success: (result) => {
+                    if (result.data != null && result.code === 2000) {
+                        let blog = result.data;
+                        $("#blogId").val(blog.id);
+                        $("#title").val(blog.title);
+                        blogContent = blog.content;
+                        if (editor) {
+                            editor.setMarkdown(blogContent);
+                        }
+                    }
+                }
+            })
         }
         getBlogInfo();
     </script>

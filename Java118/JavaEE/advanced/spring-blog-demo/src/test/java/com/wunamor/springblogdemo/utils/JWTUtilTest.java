@@ -36,7 +36,7 @@ public class JWTUtilTest {
 
     @Test
     public void parse() {
-        String token = "eyJhbGciOiJIUzI1NiJ9.eyJuYW1lIjoibGlzaSIsImlkIjoxLCJpYXQiOjE3OTA0MTE4ODcsImV4cCI6MTc5MTAxNjY4N30.lNGjeQu2vTYVGsgcRWKFwtmXzpbAGLJXt5r3a_87kOs";
+        String token = "eyJhbGciOiJIUzI1NiJ9.eyJpZCI6MSwidXNlck5hbWUiOiJ6aGFuZ3NhbiIsImlhdCI6MTc5MDQyNDI3NSwiZXhwIjoxNzkxMDI5MDc1fQ.0HEIUZNmKGXBkd8d2TMf8ks7GcZQxYZYjInhnRzYHws";
 
         JwtParser jwtParser = Jwts.parserBuilder().setSigningKey(secretKey).build();
         // 使用 parseClaimsJws 而不是 parseClaimsJwt

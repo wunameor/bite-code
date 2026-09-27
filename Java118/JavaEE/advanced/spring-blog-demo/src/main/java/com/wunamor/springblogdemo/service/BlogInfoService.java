@@ -1,9 +1,12 @@
 package com.wunamor.springblogdemo.service;
 
+import com.wunamor.springblogdemo.pojo.dto.BlogUpDTO;
+import com.wunamor.springblogdemo.pojo.dto.BlogUpdateDTO;
 import com.wunamor.springblogdemo.pojo.entity.BlogInfo;
 import com.baomidou.mybatisplus.spring.service.IService;
 import com.wunamor.springblogdemo.pojo.vo.blog.BlogDetailVO;
 import com.wunamor.springblogdemo.pojo.vo.blog.BlogOfListVO;
+import jakarta.validation.constraints.NotNull;
 
 import java.util.List;
 
@@ -19,4 +22,10 @@ public interface BlogInfoService extends IService<BlogInfo> {
     BlogDetailVO getBlogDetail(Integer blogId);
 
     BlogInfo selectByBlogId(Integer blogId);
+
+    Boolean add(BlogUpDTO blogUpDTO);
+
+    Boolean update(BlogUpdateDTO blogUpdateDTO);
+
+    Boolean delete(@NotNull Integer blogId);
 }

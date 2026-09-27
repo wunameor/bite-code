@@ -11,3 +11,20 @@ $(document).ajaxSend(function (e, xhr, opt) {
     var user_token = localStorage.getItem("user_token");
     xhr.setRequestHeader("user_token", user_token);
 });
+
+
+
+function getUserInfo(url) {
+    $.ajax({
+        url: url,
+        type: 'get',
+        success: (result) => {
+            if (result != null && result.code === 2000 && result.data != null) {
+                let userInfo = result.data;
+                $(".container .left .card h3").text(userInfo.userName);
+                $(".container .left .card a").attr("href", userInfo.githubUrl);
+            }
+        }
+    })
+}
+

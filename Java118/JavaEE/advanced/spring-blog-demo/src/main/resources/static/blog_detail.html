@@ -26,7 +26,7 @@
         <div class="left">
             <div class="card">
                 <img src="pic/doge.jpg" alt="">
-                <h3>比特汤老师</h3>
+                <h3></h3>
                 <a href="#">GitHub 地址</a>
                 <div class="row">
                     <span>文章</span>
@@ -52,6 +52,18 @@
     <script src="blog-editormd/editormd.js"></script>
     <script src="js/common.js"></script>
     <script>
+        getUserInfo(`/user/getUserInfoByBlogId${location.search}`)
+
+        $(function () {
+            var editor = editormd("editor", {
+                width: "100%",
+                height: "550px",
+                path: "blog-editormd/lib/",
+                markdown: "# this is a test"
+            });
+        });
+
+
         $.ajax({
             url: `/blog/getBlogDetail${location.search}`,
             type: "get",
@@ -64,14 +76,19 @@
                     <div class="content">
                         <div class="title">${blog.title}</div>
                         <div class="date">${blog.updateTime}</div>
-                        <div class="detail">${blog.content}</div>
-                        <div class="operating">
+                        <div class="detail" id="detail" style="background: transparent"></div>
+                        <div class="operating"
+                        style="display: ${blog.userId != localStorage.getItem('loginUserId') ? 'none' : ''}">
                             <button onclick="window.location.href='blog_update.html${location.search}'">编辑</button>
-                            <button onclick="deleteBlog()">删除</button>
+                            <button onclick="deleteBlog(${blog.id})">删除</button>
                         </div>
                     </div>`
 
                     $(".container .right").html(htmlResult)
+
+                    editormd.markdownToHTML("detail", {
+                        markdown: blog.content
+                    })
                 }
             }
         })
@@ -79,8 +96,23 @@
         //var userUrl = "/user/getAuthorInfo" + location.search;
         //getUserInfo(userUrl);
 
-        function deleteBlog() {
-            alert("删除博客");
+        function deleteBlog(blogId) {
+            // alert("删除博客");
+            if (!confirm("确认要删除吗？")) {
+                return
+            }
+            $.ajax({
+                url: "/blog/delete",
+                type: "post",
+                data: {
+                    blogId
+                },
+                success: (result) => {
+                    if (result != null && result.code === 2000 && result.data) {
+                        location.href = 'blog_list.html'
+                    }
+                }
+            })
         }
     </script>
 </body>

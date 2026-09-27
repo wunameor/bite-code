@@ -22,7 +22,7 @@ public class WebConfig implements WebMvcConfigurer {
             "/js/**",
             "/pic/**",
             "/**/*.html",
-            "favicon.ico"
+            "/favicon.ico"
     );
 
     @Override

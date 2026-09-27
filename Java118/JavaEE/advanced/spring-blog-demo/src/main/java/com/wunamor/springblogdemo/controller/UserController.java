@@ -30,4 +30,10 @@ public class UserController {
     public UserInfoVO getUserInfoByBlogId(@NotNull Integer blogId) {
         return userInfoService.getUserInfoByBlogId(blogId);
     }
+
+    @PostMapping("/logout")
+    public Boolean logout() {
+        // TODO 如果有 Redis 这些存储令牌的地方，需要把这些地方的令牌删除掉
+        return true;
+    }
 }
