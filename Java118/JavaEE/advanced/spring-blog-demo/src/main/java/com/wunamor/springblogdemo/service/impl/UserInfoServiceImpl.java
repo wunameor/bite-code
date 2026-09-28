@@ -6,6 +6,7 @@ import com.wunamor.springblogdemo.common.constants.Constant;
 import com.wunamor.springblogdemo.common.enums.ResultCodeEnums;
 import com.wunamor.springblogdemo.common.exception.BlogException;
 import com.wunamor.springblogdemo.common.utils.JwtUtil;
+import com.wunamor.springblogdemo.common.utils.SecurityUtil;
 import com.wunamor.springblogdemo.mapper.BlogInfoMapper;
 import com.wunamor.springblogdemo.pojo.dto.UserLoginDTO;
 import com.wunamor.springblogdemo.pojo.entity.BlogInfo;
@@ -47,7 +48,11 @@ public class UserInfoServiceImpl extends ServiceImpl<UserInfoMapper, UserInfo>
             throw new BlogException(ResultCodeEnums.USER_USER_NAME_ERROR);
         }
 
-        if (!userInfoLoginDTO.getPassword().equals(userInfo.getPassword())) {
+//        if (!userInfoLoginDTO.getPassword().equals(userInfo.getPassword())) {
+//            throw new BlogException(ResultCodeEnums.USER_PASSWORD_ERROR);
+//        }
+
+        if (!SecurityUtil.verify(userInfoLoginDTO.getPassword(), userInfo.getPassword())) {
             throw new BlogException(ResultCodeEnums.USER_PASSWORD_ERROR);
         }
 
