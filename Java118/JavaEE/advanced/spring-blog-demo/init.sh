@@ -1,11 +1,14 @@
 #!/usr/bin/env bash
 # live-blog 一键初始化：拉取代码 + 部署，可在任意目录执行
-#   首次:  curl -fsSL https://gitee.com/wunameor/bite-code/raw/master/Java118/JavaEE/advanced/spring-blog-demo/init.sh | sudo bash
+#   首次:  curl -fsSL https://raw.githubusercontent.com/wunameor/bite-code/master/Java118/JavaEE/advanced/spring-blog-demo/init.sh | sudo bash
 #   更新:  在 spring-blog-demo 目录内再次执行 sudo bash init.sh（自动 git pull + 重新部署）
-# 说明: 项目是 bite-code 大仓库的子目录，用 sparse-checkout 只下载本项目，省流量
+# 说明: 服务器到 Gitee 的 443 被阻断，走 GitHub；项目是 bite-code 大仓库的子目录，
+#       用 sparse + partial clone 只下载本项目，省流量
 set -euo pipefail
 
-REPO_URL="${REPO_URL:-https://gitee.com/wunameor/bite-code.git}"
+export GIT_TERMINAL_PROMPT=0   # 需要输密码时直接报错，避免挂起
+
+REPO_URL="${REPO_URL:-https://github.com/wunameor/bite-code.git}"
 REPO_DIR_NAME="bite-code"
 PROJECT_SUBDIR="Java118/JavaEE/advanced/spring-blog-demo"
 
