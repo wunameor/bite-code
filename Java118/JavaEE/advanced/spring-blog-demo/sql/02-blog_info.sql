@@ -1,0 +1,6 @@
+INSERT INTO `blog_info` (`id`, `title`, `content`, `user_id`, `delete_flag`, `create_time`, `update_time`) VALUES (1, '第一篇博客', '111我是博客正文我是博客正文我是博客正文', 1, 0, '2026-09-25 20:28:56', '2026-09-25 20:28:56');
+INSERT INTO `blog_info` (`id`, `title`, `content`, `user_id`, `delete_flag`, `create_time`, `update_time`) VALUES (2, '第二篇博客', '222我是博客正文我是博客正文我是博客正文', 2, 0, '2026-09-25 20:28:56', '2026-09-25 20:28:56');
+INSERT INTO `blog_info` (`id`, `title`, `content`, `user_id`, `delete_flag`, `create_time`, `update_time`) VALUES (3, '博客更新测试-标题2221', '# 博客更新测试-正文2221\n\n1. 写前端\n2. 写后端', 1, 0, '2026-09-27 15:23:47', '2026-09-27 16:34:10');
+INSERT INTO `blog_info` (`id`, `title`, `content`, `user_id`, `delete_flag`, `create_time`, `update_time`) VALUES (4, '博客添加测试', '##博客添加测试\n1. 写后端，用 ApiFox 测试\n2. 写前端，测试', 1, 1, '2026-09-27 15:30:15', '2026-09-27 16:13:41');
+INSERT INTO `blog_info` (`id`, `title`, `content`, `user_id`, `delete_flag`, `create_time`, `update_time`) VALUES (6, '测试添加标题1111', '测试添加正文11111', 1, 0, '2026-09-27 16:22:59', '2026-09-27 16:22:59');
+INSERT INTO `blog_info` (`id`, `title`, `content`, `user_id`, `delete_flag`, `create_time`, `update_time`) VALUES (7, 'add test', '## add test \ntttt', 1, 1, '2026-09-27 16:42:37', '2026-09-27 16:42:52');

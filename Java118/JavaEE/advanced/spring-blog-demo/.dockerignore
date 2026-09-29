@@ -1,0 +1,8 @@
+target
+.git
+.idea
+logs
+*.iml
+deploy.ps1
+setup.sh
+docker-compose.yml

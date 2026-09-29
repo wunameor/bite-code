@@ -1,0 +1,25 @@
+SET NAMES utf8mb4;
+CREATE DATABASE IF NOT EXISTS live_blog DEFAULT CHARACTER SET utf8mb4;
+USE live_blog;
+
+CREATE TABLE IF NOT EXISTS user_info (
+    id          INT         NOT NULL AUTO_INCREMENT,
+    user_name   VARCHAR(50) NOT NULL,
+    password    VARCHAR(128) NOT NULL COMMENT 'SHA-256 加密后的密码',
+    github_url  VARCHAR(255) NULL,
+    delete_flag TINYINT     NOT NULL DEFAULT 0 COMMENT '0-未删除 1-已删除',
+    create_time DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_time DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+
+CREATE TABLE IF NOT EXISTS blog_info (
+    id          INT         NOT NULL AUTO_INCREMENT,
+    title       VARCHAR(100) NOT NULL,
+    content     TEXT        NULL,
+    user_id     INT         NOT NULL,
+    delete_flag TINYINT     NOT NULL DEFAULT 0 COMMENT '0-未删除 1-已删除',
+    create_time DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_time DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;

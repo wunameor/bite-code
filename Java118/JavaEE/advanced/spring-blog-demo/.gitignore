@@ -33,3 +33,8 @@ build/
 .vscode/
 
 logs
+
+### Docker local data ###
+mysql-data/
+mysql-data.bak/
+*.img

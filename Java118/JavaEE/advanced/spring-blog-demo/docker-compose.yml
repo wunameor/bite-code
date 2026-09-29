@@ -1,0 +1,51 @@
+services:
+  app:
+    build: .
+    container_name: live-blog
+    ports:
+      - "127.0.0.1:25000:8080"   # 只允许本机反代访问，防止绕过域名直连
+    environment:
+      - TZ=Asia/Shanghai
+      - SPRING_PROFILES_ACTIVE=prod
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/live_blog?useSSL=false&serverTimezone=Asia/Shanghai&characterEncoding=utf8
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=@L1Y2c3@
+      - MYSQL_PASSWORD=@L1Y2c3@
+    depends_on:
+      mysql:
+        condition: service_healthy
+    restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1G
+    logging: &log-limit
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  mysql:
+    image: mysql:8.0
+    container_name: live-blog-mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=@L1Y2c3@
+      - MYSQL_DATABASE=live_blog
+      - TZ=Asia/Shanghai
+    volumes:
+      - /opt/live-blog-mysql:/var/lib/mysql      # setup.sh 创建的 5G 限额盘
+      - ./sql:/docker-entrypoint-initdb.d:ro     # 首次启动(数据目录为空)时按文件名顺序执行
+      - ./sql:/sql:ro                            # 常驻挂载，供定时重置使用
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p@L1Y2c3@"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2G
+    logging: *log-limit
