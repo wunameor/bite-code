@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# live-blog 一键部署脚本（Ubuntu 云服务器，幂等可重复执行）
-# 用法: git clone <仓库> && cd <目录> && sudo ./setup.sh
+# live-blog 部署脚本（Ubuntu 云服务器，幂等可重复执行）
+# 一般无需直接调用，由 init.sh 封装: sudo bash init.sh
 set -euo pipefail
 
 APP_DIR="$(cd "$(dirname "$0")" && pwd)"

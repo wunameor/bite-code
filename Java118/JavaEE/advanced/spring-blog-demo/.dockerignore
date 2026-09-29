@@ -5,4 +5,5 @@ logs
 *.iml
 deploy.ps1
 setup.sh
+init.sh
 docker-compose.yml

@@ -2,7 +2,7 @@ spring:
   application:
     name: spring-blog-demo
   datasource:
-    url: jdbc:mysql://127.0.0.1:3306/java_blog_spring?characterEncoding=utf8&useSSL=false
+    url: jdbc:mysql://127.0.0.1:3306/live_blog?characterEncoding=utf8&useSSL=false
     username: root
     password: ${MYSQL_PASSWORD} # 使用 export MYSQL_PASSWORD='xxx' 来添加环境变量
     driver-class-name: com.mysql.cj.jdbc.Driver
