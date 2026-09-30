@@ -15,7 +15,7 @@ public class Constant {
      */
     public final static String USER_ID_JWT_KEY = "id";
     public final static String USER_USER_NAME_JWT_KEY = "userName";
-    public final static String HEADER_USER_TOKEN = "User_Token";
+    public final static String HEADER_USER_TOKEN = "User-Token";
     public final static String HEADER_USER_ID = "loginUserId";
 
 }

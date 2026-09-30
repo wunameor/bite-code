@@ -9,7 +9,7 @@ $(document).ajaxError(function (event, xhr, options, exc) {
 
 $(document).ajaxSend(function (e, xhr, opt) {
     var user_token = localStorage.getItem("User_Token");
-    xhr.setRequestHeader("User_Token", user_token);
+    xhr.setRequestHeader("User-Token", user_token);
 });
 
 
