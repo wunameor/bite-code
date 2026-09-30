@@ -8,8 +8,8 @@ $(document).ajaxError(function (event, xhr, options, exc) {
 });
 
 $(document).ajaxSend(function (e, xhr, opt) {
-    var user_token = localStorage.getItem("user_token");
-    xhr.setRequestHeader("user_token", user_token);
+    var user_token = localStorage.getItem("User_Token");
+    xhr.setRequestHeader("User_Token", user_token);
 });
 
 

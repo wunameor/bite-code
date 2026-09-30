@@ -26,6 +26,7 @@ public class LoginInterceptor implements HandlerInterceptor {
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
 
         response.setContentType("application/json;charset=UTF-8");
+        log.info("令牌解析：请求路径 {}", request.getRequestURI());
         // 校验JWT是否有效
         try {
             String userToken = request.getHeader(Constant.HEADER_USER_TOKEN);

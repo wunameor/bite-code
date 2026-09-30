@@ -45,4 +45,8 @@ public class JwtUtil {
         // 使用 parseClaimsJws 而不是 parseClaimsJwt
         return result;
     }
+
+    public static void main(String[] args) {
+        System.out.println(parseJwt("eyJhbGciOiJIUzI1NiJ9.eyJpZCI6MSwidXNlck5hbWUiOiJ6aGFuZ3NhbiIsImlhdCI6MTc5MDcyODYyOCwiZXhwIjoxNzkxMzMzNDI4fQ.vpPGm4sUDBxLViufLHAKlzwXHmMffnb4jGokr_xk1js"));
+    }
 }
