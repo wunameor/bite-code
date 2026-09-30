@@ -39,6 +39,7 @@ else
     mkdir -p "$MYSQL_DISK"
     grep -qF "$MYSQL_IMG" /etc/fstab || echo "$MYSQL_IMG $MYSQL_DISK ext4 loop,defaults 0 0" >> /etc/fstab
     mount "$MYSQL_DISK"
+    chown 999:999 "$MYSQL_DISK"   # 无条件确保 mysql 容器用户可写（全新盘属主是 root）
 
     # 迁移旧数据（compose 升级前用 ./mysql-data 目录）
     if [ -d "$APP_DIR/mysql-data" ] && [ -n "$(ls -A "$APP_DIR/mysql-data" 2>/dev/null)" ] \
