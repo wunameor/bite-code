@@ -1,0 +1,8 @@
+spring:
+  application:
+    name: redis-spring-boot-demo
+  data:
+    redis:
+      host: localhost
+      port: 8888
+
