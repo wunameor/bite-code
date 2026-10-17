@@ -1,4 +1,4 @@
-﻿# 一键部署：Windows 本地打包源码 -> 上传 Ubuntu 云服务器 -> 服务器上 Docker 构建并启动（无需上传 jar）
+# 一键部署：Windows 本地打包源码 -> 上传 Ubuntu 云服务器 -> 服务器上 Docker 构建并启动（无需上传 jar）
 # 用法: .\deploy.ps1 -ServerHost <云服务器IP>
 #       .\deploy.ps1 -ServerHost 1.2.3.4 -ServerUser root -RemoteDir /opt/live-blog
 param(
@@ -32,7 +32,7 @@ $remoteCmd = "mkdir -p $RemoteDir && " +
 ssh "${ServerUser}@${ServerHost}" $remoteCmd
 
 if ($LASTEXITCODE -eq 0) {
-    Write-Host "==> 部署完成! 端口仅绑定 127.0.0.1:25000，请通过域名反代访问 https://live-blog.774821.xyz" -ForegroundColor Green
+    Write-Host "==> 部署完成! 端口仅绑定 127.0.0.1:25000，请通过域名反代访问 https://project-blog.774821.xyz" -ForegroundColor Green
 } else {
     Write-Host "==> 部署失败，检查上方输出" -ForegroundColor Red
     exit 1
