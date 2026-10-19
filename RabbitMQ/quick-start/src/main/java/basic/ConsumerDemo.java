@@ -1,19 +1,14 @@
+package basic;
+
 import com.rabbitmq.client.*;
+import config.RabbitMQConfig;
 
 import java.io.IOException;
 import java.util.concurrent.TimeoutException;
 
 public class ConsumerDemo {
     public static void main(String[] args) throws IOException, TimeoutException, InterruptedException {
-        ConnectionFactory factory = new ConnectionFactory();
-        factory.setUsername("study");
-        factory.setPassword("study");
-        factory.setHost("127.0.0.1");
-        factory.setPort(5672);
-        factory.setVirtualHost("bite");
-
-        Connection connection = factory.newConnection();
-        Channel channel = connection.createChannel();
+        Channel channel = RabbitMQConfig.getChannel();
         // 声明队列（可以不声明，但是为了提高代码的健壮性，建议声明）
         channel.queueDeclare("queue1", true, false, false, null);
 
@@ -27,7 +22,6 @@ public class ConsumerDemo {
         });
 
         Thread.sleep(2000);
-        channel.close();
-        connection.close();
+        RabbitMQConfig.close();
     }
 }
