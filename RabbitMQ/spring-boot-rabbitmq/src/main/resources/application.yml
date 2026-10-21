@@ -1,0 +1,5 @@
+spring:
+  application:
+    name: spring-boot-rabbitmq
+  rabbitmq:
+    addresses: amqp://study:study@127.0.0.1:5672/bite
