@@ -8,13 +8,14 @@ import java.io.IOException;
 import java.util.UUID;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.TimeUnit;
 
-public class Producer {
-    public static void main(String[] args) throws IOException {
+public class ClientRPC {
+    public static void main(String[] args) throws IOException, InterruptedException {
         Channel channel = RabbitMQConfig.getChannel();
 
-        channel.queueDeclare(Constant.RPC_REQUEST_QUEUE, true, false, true, null);
-        channel.queueDeclare(Constant.RPC_RESPONSE_QUEUE, true, false, true, null);
+        channel.queueDeclare(Constant.RPC_REQUEST_QUEUE, true, false, false, null);
+        channel.queueDeclare(Constant.RPC_RESPONSE_QUEUE, true, false, false, null);
 
         String correlationId = UUID.randomUUID().toString();
 
@@ -36,9 +37,14 @@ public class Producer {
                 String responseMsg = new String(body);
                 System.out.println("接收到 response queue 信息：" + responseMsg);
                 blockingQueue.offer(responseMsg);
+//                if (!properties.getCorrelationId().equals(correlationId)) {
+//                    channel.basicNack(envelope.getDeliveryTag(), false, true);
+//                    return;
+//                }
+                channel.basicAck(envelope.getDeliveryTag(), false);
             }
         });
 
-        System.out.println("接收到阻塞队列的信息：" + blockingQueue.poll()); // 一般不会设置死等，但这里是学习
+        System.out.println("接收到阻塞队列的信息：" + blockingQueue.poll(50, TimeUnit.HOURS)); // 一般不会设置死等，但这里是学习
     }
 }

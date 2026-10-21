@@ -27,6 +27,12 @@ public class Constant {
     public static final String TOPIC_QUEUE2 = "topic.queue2";
 
     // RPC 模式
-    public static final String RPC_REQUEST_QUEUE = "rpc.request.queue1";
-    public static final String RPC_RESPONSE_QUEUE = "rpc.response.queue1";
+    public static final String RPC_REQUEST_QUEUE = "rpc.request.queue";
+    public static final String RPC_RESPONSE_QUEUE = "rpc.response.queue";
+
+    // 发布确认模式
+    public static final String PUBLISH_CONFIRM_QUEUE1 = "publish.confirm.queue1";
+    public static final String PUBLISH_CONFIRM_QUEUE2 = "publish.confirm.queue2";
+    public static final String PUBLISH_CONFIRM_QUEUE3 = "publish.confirm.queue3";
+
 }
