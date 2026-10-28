@@ -1,0 +1,5 @@
+spring:
+  application:
+    name: service-order
+  rabbitmq:
+    addresses: amqp://study:study@127.0.0.1:5672/bite

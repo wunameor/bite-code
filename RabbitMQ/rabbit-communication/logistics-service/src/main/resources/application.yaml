@@ -1,0 +1,8 @@
+spring:
+  application:
+    name: logistics
+  rabbitmq:
+    addresses: amqp://study:study@127.0.0.1:5672/bite
+
+server:
+  port: 9090
