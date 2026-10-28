@@ -1,0 +1,8 @@
+spring:
+  application:
+    name: rabbit-extensions
+  rabbitmq:
+    addresses: amqp://study:study@127.0.0.1:5672/bite
+    listener:
+      simple:
+        acknowledge-mode: auto  #消息接收确认
