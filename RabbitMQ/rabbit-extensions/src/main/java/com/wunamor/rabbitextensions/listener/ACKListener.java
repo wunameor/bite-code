@@ -9,7 +9,7 @@ import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 
-@Component
+//@Component
 public class ACKListener {
     @RabbitListener(queues = Constant.ACK_QUEUE)
     public void listen(Message message, Channel channel) throws IOException {
