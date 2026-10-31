@@ -55,4 +55,47 @@ public class RabbitMQConfig {
     public Binding confirmBinding(@Qualifier("confirmExchange") DirectExchange confirmExchange, @Qualifier("confirmQueue") Queue confirmQueue) {
         return BindingBuilder.bind(confirmQueue).to(confirmExchange).with("confirm");
     }
+
+    // 重试机制
+    @Bean("retryQueue")
+    public Queue retryQueue() {
+        return QueueBuilder.durable(Constant.RETRY_QUEUE).build();
+    }
+
+    @Bean("retryExchange")
+    public DirectExchange retryExchange() {
+        return ExchangeBuilder.directExchange(Constant.RETRY_EXCHANGE).build();
+    }
+
+    @Bean("retryBinding")
+    public Binding retryBinding(@Qualifier("retryExchange") DirectExchange retryExchange, @Qualifier("retryQueue") Queue retryQueue) {
+        return BindingBuilder.bind(retryQueue).to(retryExchange).with("retry");
+    }
+
+    // 过期时间 TTL
+    @Bean("ttlQueue")
+    public Queue ttlQueue() {
+        return QueueBuilder.durable(Constant.TTL_QUEUE).ttl(20_000).build();
+    }
+
+    @Bean("noTTLQueue")
+    public Queue noTTLQueue() {
+        return QueueBuilder.durable(Constant.NO_TTL_QUEUE).build();
+    }
+
+
+    @Bean("ttlExchange")
+    public DirectExchange ttlExchange() {
+        return ExchangeBuilder.directExchange(Constant.TTL_EXCHANGE).build();
+    }
+
+    @Bean("ttlBinding")
+    public Binding ttlBinding(@Qualifier("ttlExchange") DirectExchange ttlExchange, @Qualifier("ttlQueue") Queue ttlQueue) {
+        return BindingBuilder.bind(ttlQueue).to(ttlExchange).with("ttl");
+    }
+
+    @Bean("noTTLBinding")
+    public Binding noTTLBinding(@Qualifier("ttlExchange") DirectExchange ttlExchange, @Qualifier("noTTLQueue") Queue ttlQueue) {
+        return BindingBuilder.bind(ttlQueue).to(ttlExchange).with("ttl");
+    }
 }

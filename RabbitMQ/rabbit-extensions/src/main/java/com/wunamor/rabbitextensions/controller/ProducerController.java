@@ -55,4 +55,38 @@ public class ProducerController {
         returnRabbitTemplate.convertAndSend(Constant.CONFIRM_EXCHANGE, "confirm1", "this is a publisher confirm test", correlationData);
         return "发送成功";
     }
+
+    @RequestMapping("/retry")
+    public String retry() {
+        returnRabbitTemplate.convertAndSend(Constant.RETRY_EXCHANGE, "retry", "this is a retry test");
+        return "发送成功";
+    }
+
+    @RequestMapping("/ttl")
+    public String ttl() {
+        returnRabbitTemplate.convertAndSend(Constant.TTL_EXCHANGE, "ttl", "this is a ttl test", message -> {
+            message.getMessageProperties().setExpiration("5000"); // 30s
+            return message;
+        });
+
+        returnRabbitTemplate.convertAndSend(Constant.TTL_EXCHANGE, "ttl", "this is a ttl test", message -> {
+            message.getMessageProperties().setExpiration("30000"); // 30s
+            return message;
+        });
+
+        returnRabbitTemplate.convertAndSend(Constant.TTL_EXCHANGE, "ttl", "this is a ttl test", message -> {
+            message.getMessageProperties().setExpiration("5000"); // 30s
+            return message;
+        });
+        return "发送成功";
+    }
+
+    @RequestMapping("/noTTL")
+    public String noTTL() {
+        returnRabbitTemplate.convertAndSend(Constant.TTL_EXCHANGE, "ttl", "this is a ttl test", message -> {
+            message.getMessageProperties().setExpiration("10000"); // 10s
+            return message;
+        });
+        return "发送成功";
+    }
 }
