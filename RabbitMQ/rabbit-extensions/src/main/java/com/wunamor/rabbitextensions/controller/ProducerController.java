@@ -89,4 +89,12 @@ public class ProducerController {
         });
         return "发送成功";
     }
+
+    @RequestMapping("/dl")
+    public String dl() {
+        for (int i = 0; i < 20; i++) {
+            returnRabbitTemplate.convertAndSend(Constant.NORMAL_EXCHANGE, "normal", "this is a dl test");
+        }
+        return "发送成功";
+    }
 }

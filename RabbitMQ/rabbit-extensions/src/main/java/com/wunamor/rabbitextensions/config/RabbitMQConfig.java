@@ -98,4 +98,41 @@ public class RabbitMQConfig {
     public Binding noTTLBinding(@Qualifier("ttlExchange") DirectExchange ttlExchange, @Qualifier("noTTLQueue") Queue ttlQueue) {
         return BindingBuilder.bind(ttlQueue).to(ttlExchange).with("ttl");
     }
+
+    // 死信
+    @Bean("normalQueue")
+    public Queue normalQueue() {
+        return QueueBuilder
+                .durable(Constant.NORMAL_QUEUE)
+                .deadLetterExchange(Constant.DL_EXCHANGE)
+                .ttl(10_000)
+                .maxLength(10L)
+                .deadLetterRoutingKey("dl")
+                .build();
+    }
+
+    @Bean("normalExchange")
+    public DirectExchange normalExchange() {
+        return ExchangeBuilder.directExchange(Constant.NORMAL_EXCHANGE).build();
+    }
+
+    @Bean("normalBinding")
+    public Binding normalBinding(@Qualifier("normalExchange") DirectExchange normalExchange, @Qualifier("normalQueue") Queue normalQueue) {
+        return BindingBuilder.bind(normalQueue).to(normalExchange).with("normal");
+    }
+
+    @Bean("dlQueue")
+    public Queue dlQueue() {
+        return QueueBuilder.durable(Constant.DL_QUEUE).build();
+    }
+
+    @Bean("dlExchange")
+    public DirectExchange dlExchange() {
+        return ExchangeBuilder.directExchange(Constant.DL_EXCHANGE).build();
+    }
+
+    @Bean("dlBinding")
+    public Binding dlBinding(@Qualifier("dlExchange") DirectExchange dlExchange, @Qualifier("dlQueue") Queue dlQueue) {
+        return BindingBuilder.bind(dlQueue).to(dlExchange).with("dl");
+    }
 }
