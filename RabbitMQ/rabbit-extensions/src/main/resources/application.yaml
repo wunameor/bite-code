@@ -10,5 +10,5 @@ spring:
           enabled: true # 开启消费者失败重试
           initial-interval: 5000ms # 初始失败等待时长为5秒
           max-retries: 3 # 最大重试次数
-    publisher-confirm-type: correlated   #消息发送确认
+#    publisher-confirm-type: correlated   #消息发送确认
 #    publisher-returns: true #设置回退

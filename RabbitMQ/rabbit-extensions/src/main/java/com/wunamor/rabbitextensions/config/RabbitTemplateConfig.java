@@ -2,6 +2,7 @@ package com.wunamor.rabbitextensions.config;
 
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.amqp.rabbit.transaction.RabbitTransactionManager;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -37,5 +38,17 @@ public class RabbitTemplateConfig {
             System.out.printf("消息被退回: %s\n", message);
         }));
         return rabbitTemplate;
+    }
+
+    @Bean("transTemplate")
+    public RabbitTemplate transTemplate(ConnectionFactory connectionFactory) {
+        RabbitTemplate rabbitTemplate = new RabbitTemplate(connectionFactory);
+        rabbitTemplate.setChannelTransacted(true); // 开启事务
+        return rabbitTemplate;
+    }
+
+    @Bean
+    public RabbitTransactionManager rabbitTransactionManager(ConnectionFactory connectionFactory) {
+        return new RabbitTransactionManager(connectionFactory);
     }
 }
