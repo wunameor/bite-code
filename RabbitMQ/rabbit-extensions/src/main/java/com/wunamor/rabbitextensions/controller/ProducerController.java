@@ -11,6 +11,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.Date;
+
 @RestController
 @RequestMapping("/producer")
 public class ProducerController {
@@ -92,9 +94,27 @@ public class ProducerController {
 
     @RequestMapping("/dl")
     public String dl() {
-        for (int i = 0; i < 20; i++) {
-            returnRabbitTemplate.convertAndSend(Constant.NORMAL_EXCHANGE, "normal", "this is a dl test");
-        }
+//        for (int i = 0; i < 20; i++) {
+//            returnRabbitTemplate.convertAndSend(Constant.NORMAL_EXCHANGE, "normal", "this is a dl test");
+//        }
+        System.out.printf("[%tc] 把消息发送到 rabbit dl 消息,\n", new Date());
+
+        returnRabbitTemplate.convertAndSend(Constant.NORMAL_EXCHANGE, "normal", "this is a dl test");
+        return "发送成功";
+    }
+
+    @RequestMapping("/delay")
+    public String delay() {
+        System.out.printf("[%tc] 把消息发送到 rabbit delay 消息,\n", new Date());
+        returnRabbitTemplate.convertAndSend(Constant.DELAY_EXCHANGE, "delay", "this is a delay 10s test", message -> {
+            message.getMessageProperties().setDelayLong(10_000L);
+            return message;
+        });
+
+        returnRabbitTemplate.convertAndSend(Constant.DELAY_EXCHANGE, "delay", "this is a delay 30s test", message -> {
+            message.getMessageProperties().setDelayLong(30_000L);
+            return message;
+        });
         return "发送成功";
     }
 }

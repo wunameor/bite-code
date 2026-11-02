@@ -27,4 +27,8 @@ public class Constant {
     public static final String NORMAL_EXCHANGE = "normal.exchange";
     public static final String DL_QUEUE = "dl.queue";
     public static final String DL_EXCHANGE = "dl.exchange";
+
+    // 延迟队列
+    public static final String DELAY_QUEUE = "delay.queue";
+    public static final String DELAY_EXCHANGE = "delay.exchange";
 }

@@ -135,4 +135,22 @@ public class RabbitMQConfig {
     public Binding dlBinding(@Qualifier("dlExchange") DirectExchange dlExchange, @Qualifier("dlQueue") Queue dlQueue) {
         return BindingBuilder.bind(dlQueue).to(dlExchange).with("dl");
     }
+
+    // 延迟队列
+    @Bean("delayQueue")
+    public Queue delayQueue() {
+        return QueueBuilder.durable(Constant.DELAY_QUEUE).build();
+    }
+
+    @Bean("delayExchange")
+    public DirectExchange delayExchange() {
+        return ExchangeBuilder.directExchange(Constant.DELAY_EXCHANGE)
+                .delayed()
+                .build();
+    }
+
+    @Bean("delayBinding")
+    public Binding delayBinding(@Qualifier("delayExchange") DirectExchange delayExchange, @Qualifier("delayQueue") Queue delayQueue) {
+        return BindingBuilder.bind(delayQueue).to(delayExchange).with("delay");
+    }
 }

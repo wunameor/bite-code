@@ -8,20 +8,29 @@ import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
+import java.util.Date;
 
-//@Component
+@Component
 public class DlListener {
-    @RabbitListener(queues = Constant.NORMAL_QUEUE)
-    public void listen(Message message, Channel channel) throws IOException {
+//    @RabbitListener(queues = Constant.NORMAL_QUEUE)
+//    public void listen(Message message, Channel channel) throws IOException {
+//        long deliveryTag = message.getMessageProperties().getDeliveryTag();
+//        System.out.printf("获取到 rabbit dl 消息, [%s]: %s, tag: %d\n", Constant.NORMAL_QUEUE, new String(message.getBody()), deliveryTag);
+//        try {
+//            // 手动异常
+//            int a = 3 / 0;
+//            // 重试次数只能在配置中配置 acknowledge-mode: auto 的时候才能起作用
+//            channel.basicAck(deliveryTag, false);
+//        } catch (Exception e) {
+//            channel.basicNack(deliveryTag, false, false);
+//        }
+//    }
+
+    // 模拟延迟队列，监听死信队列
+    @RabbitListener(queues = Constant.DL_QUEUE)
+    public void listen2(Message message, Channel channel) throws IOException {
         long deliveryTag = message.getMessageProperties().getDeliveryTag();
-        System.out.printf("获取到 rabbit dl 消息, [%s]: %s, tag: %d\n", Constant.NORMAL_QUEUE, new String(message.getBody()), deliveryTag);
-        try {
-            // 手动异常
-            int a = 3 / 0;
-            // 重试次数只能在配置中配置 acknowledge-mode: auto 的时候才能起作用
-            channel.basicAck(deliveryTag, false);
-        } catch (Exception e) {
-            channel.basicNack(deliveryTag, false, false);
-        }
+        System.out.printf("[%tc] 获取到 rabbit dl 消息, [%s]: %s, tag: %d\n",
+                new Date(), Constant.DL_QUEUE, new String(message.getBody()), deliveryTag);
     }
 }
