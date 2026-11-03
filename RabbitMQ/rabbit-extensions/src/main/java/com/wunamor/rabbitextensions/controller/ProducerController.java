@@ -131,4 +131,13 @@ public class ProducerController {
 
         return "发送成功";
     }
+
+    @RequestMapping("/qos")
+    public String qos() {
+        for (int i = 0; i < 20; i++) {
+            rabbitTemplate.convertAndSend(Constant.QOS_EXCHANGE, "qos", "this is an 'qos' test");
+        }
+
+        return "发送成功";
+    }
 }

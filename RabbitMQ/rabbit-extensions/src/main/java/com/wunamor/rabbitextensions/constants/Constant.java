@@ -34,4 +34,9 @@ public class Constant {
 
     // 事务
     public static final String TRANS_QUEUE = "trans.queue";
+
+    // 限流
+    public static final String QOS_QUEUE = "qos.queue";
+    public static final String QOS_EXCHANGE = "qos.exchange";
+
 }
