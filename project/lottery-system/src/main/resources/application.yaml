@@ -1,0 +1,18 @@
+spring:
+  application:
+    name: lottery-system
+  profiles:
+    active: dev
+  datasource:
+    url: jdbc:mysql://127.0.0.1:3306/lottery_system?characterEncoding=utf8&useSSL=false
+    username: root
+    password: "123456"
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+mybatis:
+  type-handlers-package: com.wunamor.lotterysystem.mapper.dataobject
+  # 设置 Mybatis 的 xml 保存路径
+  mapper-locations: classpath:mapper/*Mapper.xml
+  configuration:
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl  # 配置打印 MyBatis 执行的 SQL
+    map-underscore-to-camel-case: true  #自动驼峰转换
