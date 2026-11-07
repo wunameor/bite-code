@@ -1,17 +1,21 @@
 package com.wunamor.lotterysystem.service.impl;
 
+import cn.hutool.crypto.digest.DigestUtil;
 import com.wunamor.lotterysystem.common.errorcode.ServiceErrorCodeConstants;
 import com.wunamor.lotterysystem.common.exception.ServiceException;
 import com.wunamor.lotterysystem.common.utils.RegexUtil;
 import com.wunamor.lotterysystem.controller.request.UserRegisterRequest;
 import com.wunamor.lotterysystem.mapper.UserMapper;
 import com.wunamor.lotterysystem.mapper.dataobject.Encrypt;
+import com.wunamor.lotterysystem.mapper.dataobject.UserDO;
 import com.wunamor.lotterysystem.service.UserService;
 import com.wunamor.lotterysystem.service.dto.UserRegisterDTO;
 import com.wunamor.lotterysystem.service.enums.UserIdentityEnum;
 import jakarta.validation.constraints.NotBlank;
+import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 @Service
 public class UserServiceImpl implements UserService {
@@ -24,9 +28,20 @@ public class UserServiceImpl implements UserService {
         // 检查一下参数
         checkRegisterInfo(registerRequest);
         // 执行注册的业务
+        // 1. 先把内容给转换一下
+        UserDO userDO = new UserDO();
+        BeanUtils.copyProperties(registerRequest, userDO);
+        // 还需要处理一下密码
+        if (StringUtils.hasText(registerRequest.getPassword())) {
+            userDO.setPassword(DigestUtil.sha256Hex(registerRequest.getPassword()));
+        }
+        userDO.setPhoneNumber(new Encrypt(registerRequest.getPhoneNumber()));
+        // 2. 插入到数据库中
+        userMapper.insert(userDO);
 
+        // 3. 返回相关响应
         UserRegisterDTO userRegisterDTO = new UserRegisterDTO();
-        userRegisterDTO.setUserId(12L);
+        userRegisterDTO.setUserId(userDO.getId());
         return userRegisterDTO;
     }
 

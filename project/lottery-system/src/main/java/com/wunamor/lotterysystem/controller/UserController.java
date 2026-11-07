@@ -29,7 +29,7 @@ public class UserController {
             throw new ControllerException(ControllerErrorCodeConstants.REGISTER_ERROR);
         }
 
-        log.info("用户注册，userName: {}, identity: {}", userRegisterRequest.getName(),
+        log.info("用户注册，userName: {}, identity: {}", userRegisterRequest.getUserName(),
                 userRegisterRequest.getIdentity());
         UserRegisterDTO register = userService.register(userRegisterRequest);
         UserRegisterResponse userRegisterResponse = new UserRegisterResponse();

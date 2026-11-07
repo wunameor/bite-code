@@ -18,7 +18,7 @@ import java.sql.SQLException;
 @MappedTypes(Encrypt.class)
 @MappedJdbcTypes(JdbcType.VARCHAR)
 public class EncryptTypeHandler extends BaseTypeHandler<Encrypt> {
-    private static final byte[] KEY = "1234567890abcde".getBytes(StandardCharsets.UTF_8);
+    private static final byte[] KEY = "1234567890abcdef".getBytes(StandardCharsets.UTF_8);
 
     private static final AES aes = SecureUtil.aes(KEY);
 

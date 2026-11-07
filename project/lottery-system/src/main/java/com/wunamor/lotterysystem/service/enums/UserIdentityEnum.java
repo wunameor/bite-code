@@ -6,8 +6,8 @@ import lombok.Getter;
 @Getter
 @AllArgsConstructor
 public enum UserIdentityEnum {
-    ADMIN(1, "管理员"),
-    NORMAL_USER(2, "普通用户"),
+    ADMIN(0, "管理员"),
+    NORMAL_USER(1, "普通用户"),
     ;
 
     private final int id;
