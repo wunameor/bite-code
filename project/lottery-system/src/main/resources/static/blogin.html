@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>管理员登录页面</title>
+  <link rel="stylesheet" href="./css/bootstrap.min.css">
+  <link rel="stylesheet" href="./css/base.css">
+  <link rel="stylesheet" href="./css/login.css">
+  <link rel="stylesheet" href="./css/toastr.min.css">
+</head>
+<body class="login-page">
+<!-- 登录框区域 -->
+<div class="login-box row">
+  <div class="img-box col-sm-6 col-md-6 col-lg-7 col-xl-7">
+    <img src="./pic/login-left.png" class="img-fluid" alt="登录插图">
+  </div>
+  <div class="login-container col-sm-6 col-md-6 col-lg-5 col-xl-5">
+
+    <div class="tab-box">
+      <span class="active tab-span" data-form="loginForm">密码登录</span>
+      <span class="tab-span" data-form="codeForm">验证码登录</span>
+    </div>
+
+    <!-- 密码登录 -->
+    <form id="loginForm" method="post">
+      <div class="form-group">
+        <label for="account">用户名 / 邮箱</label>
+        <input class="form-control" type="text" id="account" name="account"
+               placeholder="请输入用户名或邮箱" autocomplete="username" required>
+      </div>
+      <div class="form-group">
+        <label for="password">密码</label>
+        <input class="form-control" type="password" id="password" name="password"
+               placeholder="请输入密码" autocomplete="current-password" required>
+      </div>
+      <button type="submit" class="btn btn-primary btn-block login-btn">登录</button>
+      <div class="error"></div>
+    </form>
+
+    <!-- 验证码登录 -->
+    <form id="codeForm" method="post" style="display: none;">
+      <div class="form-group">
+        <label for="loginAccount">用户名 / 邮箱</label>
+        <input class="form-control" type="text" id="loginAccount" name="loginAccount"
+               placeholder="请输入用户名或邮箱" autocomplete="username" required>
+      </div>
+      <div class="form-group">
+        <label for="emailCode">邮箱验证码</label>
+        <div class="code-box">
+          <input class="form-control" type="text" id="emailCode" name="emailCode"
+                 placeholder="请输入 6 位验证码" inputmode="numeric" maxlength="6"
+                 autocomplete="one-time-code" required>
+          <button type="button" class="btn btn-primary" id="getVerificationCode">获取验证码</button>
+        </div>
+      </div>
+      <button type="submit" class="btn btn-primary btn-block login-btn">登录</button>
+      <div class="error"></div>
+    </form>
+
+    <div class="register-link">
+      还没有账号，去<a href="register.html?admin=true">注册</a>
+    </div>
+  </div>
+</div>
+
+<script src="./js/jquery.min.js"></script>
+<script src="./js/jquery.validate.min.js"></script>
+<script src="./js/bootstrap.min.js"></script>
+<script src="./js/toastr.min.js"></script>
+<script>
+  // ==================== 公共配置 ====================
+  // 优先用 toastr，第三方库异常时退回 alert
+  if (window.toastr) {
+    toastr.options = {
+      closeButton: true,
+      progressBar: true,
+      timeOut: 3000,
+      positionClass: 'toast-top-center'
+    };
+  }
+
+  // 后端 identity：0 = 管理员，1 = 普通用户。
+  // 模板里的其它页面读的是 user_identity === "ADMIN"，这里统一做一次映射。
+  var IDENTITY_NAME = {0: 'ADMIN', 1: 'NORMAL_USER'};
+
+  function notifySuccess(message) {
+    window.toastr ? toastr.success(message) : alert(message);
+  }
+
+  function notifyError(message) {
+    window.toastr ? toastr.error(message) : alert(message);
+  }
+
+  /**
+   * 登录成功后的统一处理：
+   * 1. 只有管理员（identity === 0）才能进入后台；
+   * 2. 保存 JWT 和用户信息，key 与 admin/activities/draw 等页面保持一致；
+   * 3. 跳转后台首页。
+   */
+  function handleLoginResult(result) {
+    if (!result || result.code !== 200) {
+      notifyError((result && result.message) || '登录失败');
+      return;
+    }
+
+    var data = result.data;
+    if (data.identity !== 0) {
+      notifyError('该账号不是管理员，无法登录后台');
+      return;
+    }
+
+    // 后端返回的 JWT 存在 user_token 里，其它页面统一从这里取
+    localStorage.setItem('user_token', data.token);
+    localStorage.setItem('user_id', data.userId);
+    localStorage.setItem('user_name', data.userName);
+    localStorage.setItem('user_identity', IDENTITY_NAME[data.identity] || 'NORMAL_USER');
+
+    notifySuccess('登录成功，欢迎 ' + data.userName);
+    setTimeout(function () {
+      location.href = 'admin.html';
+    }, 800);
+  }
+
+  // ==================== tab 切换 ====================
+  $('.tab-box span').on('click', function () {
+    var formId = '#' + $(this).data('form');
+    $(this).addClass('active').siblings().removeClass('active');
+    $('form').hide();
+    $(formId).show();
+  });
+
+  // ==================== 密码登录 ====================
+  $('#loginForm').validate({
+    ignore: ':hidden',
+    rules: {
+      account: {required: true},
+      password: {required: true, minlength: 6}
+    },
+    messages: {
+      account: '请输入用户名或邮箱',
+      password: {
+        required: '请输入密码',
+        minlength: '密码长度至少为 6 个字符'
+      }
+    },
+    submitHandler: function (form) {
+      var $btn = $(form).find('button[type=submit]');
+      $btn.prop('disabled', true).text('登录中...');
+
+      $.ajax({
+        url: '/user/login',
+        type: 'post',
+        contentType: 'application/json',
+        data: JSON.stringify({
+          type: 'PASSWORD',
+          account: $('#account').val().trim(),
+          password: $('#password').val()
+        }),
+        success: function (result) {
+          handleLoginResult(result);
+        },
+        error: function (xhr) {
+          notifyError('请求失败：' + xhr.status + ' ' + xhr.statusText);
+        },
+        complete: function () {
+          $btn.prop('disabled', false).text('登录');
+        }
+      });
+      return false;
+    }
+  });
+
+  // ==================== 验证码登录 ====================
+  $('#codeForm').validate({
+    ignore: ':hidden',
+    rules: {
+      loginAccount: {required: true},
+      emailCode: {required: true, digits: true, minlength: 6, maxlength: 6}
+    },
+    messages: {
+      loginAccount: '请输入用户名或邮箱',
+      emailCode: {
+        required: '请输入邮箱验证码',
+        digits: '验证码只能是数字',
+        minlength: '验证码为 6 位数字',
+        maxlength: '验证码为 6 位数字'
+      }
+    },
+    submitHandler: function (form) {
+      var $btn = $(form).find('button[type=submit]');
+      $btn.prop('disabled', true).text('登录中...');
+
+      $.ajax({
+        url: '/user/login',
+        type: 'post',
+        contentType: 'application/json',
+        data: JSON.stringify({
+          type: 'EMAIL_CODE',
+          account: $('#loginAccount').val().trim(),
+          emailCode: $('#emailCode').val().trim()
+        }),
+        success: function (result) {
+          handleLoginResult(result);
+        },
+        error: function (xhr) {
+          notifyError('请求失败：' + xhr.status + ' ' + xhr.statusText);
+        },
+        complete: function () {
+          $btn.prop('disabled', false).text('登录');
+        }
+      });
+      return false;
+    }
+  });
+
+  // ==================== 获取登录验证码 ====================
+  var COUNTDOWN_SECONDS = 60;
+  var countdownTimer = null;
+
+  function resetSendCodeBtn() {
+    $('#getVerificationCode').prop('disabled', false).text('获取验证码');
+  }
+
+  function startCountdown(seconds) {
+    var left = seconds;
+    var $btn = $('#getVerificationCode');
+    $btn.prop('disabled', true).text(left + 's 后重发');
+
+    countdownTimer && clearInterval(countdownTimer);
+    countdownTimer = setInterval(function () {
+      left--;
+      if (left <= 0) {
+        clearInterval(countdownTimer);
+        countdownTimer = null;
+        resetSendCodeBtn();
+      } else {
+        $btn.text(left + 's 后重发');
+      }
+    }, 1000);
+  }
+
+  $('#getVerificationCode').on('click', function () {
+    // 先校验账号，避免空账号也去请求验证码
+    if (!$('#codeForm').validate().element('#loginAccount')) {
+      return;
+    }
+
+    var $btn = $(this);
+    $btn.prop('disabled', true).text('发送中...');
+
+    $.ajax({
+      url: '/user/email-code',
+      type: 'post',
+      contentType: 'application/json',
+      data: JSON.stringify({
+        scene: 'LOGIN',
+        account: $('#loginAccount').val().trim()
+      }),
+      success: function (result) {
+        if (result.code === 200) {
+          // 后端对不存在的账号也返回成功，避免被用来枚举用户
+          notifySuccess('验证码已发送（若账号存在），请查收邮箱，5 分钟内有效');
+          $('#emailCode').val('');
+          startCountdown(COUNTDOWN_SECONDS);
+        } else {
+          notifyError(result.message || '验证码发送失败');
+          resetSendCodeBtn();
+        }
+      },
+      error: function (xhr) {
+        notifyError('发送失败：' + xhr.status + ' ' + xhr.statusText);
+        resetSendCodeBtn();
+      }
+    });
+  });
+</script>
+</body>
+</html>

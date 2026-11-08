@@ -100,6 +100,12 @@
                    name="password" placeholder="请输入 6-12 位字母或数字"
                    autocomplete="new-password" maxlength="12" required>
         </div>
+        <div class="form-group">
+            <label for="confirmPassword">确认密码</label>
+            <input type="password" class="form-control" id="confirmPassword"
+                   name="confirmPassword" placeholder="请再次输入密码"
+                   autocomplete="new-password" maxlength="12" required>
+        </div>
         <button type="submit" class="btn btn-primary btn-block">注册</button>
     </form>
 </div>
@@ -157,6 +163,10 @@
             password: {
                 required: true,
                 passwordFormat: true
+            },
+            confirmPassword: {
+                required: true,
+                equalTo: '#password'
             }
         },
         messages: {
@@ -173,10 +183,15 @@
             },
             password: {
                 required: "请输入密码"
+            },
+            confirmPassword: {
+                required: "请再次输入密码",
+                equalTo: "两次输入的密码不一致"
             }
         },
         submitHandler: function (form) {
             var $btn = $(form).find('button[type=submit]');
+            var redirecting = false;
             // 防止重复提交
             $btn.prop('disabled', true).text('注册中...');
 
@@ -196,8 +211,13 @@
                 data: JSON.stringify(formData),
                 success: function (result) {
                     if (result.code === 200) {
-                        notifySuccess('注册成功，用户 ID：' + result.data.userId);
-                        form.reset();
+                        redirecting = true;
+                        notifySuccess('注册成功，即将跳转到登录页');
+                        // 管理员注册回管理员登录页，普通用户回普通登录页
+                        var target = identity === 0 ? 'blogin.html' : 'login.html';
+                        setTimeout(function () {
+                            location.href = target;
+                        }, 1000);
                     } else {
                         notifyError(result.message);
                     }
@@ -206,7 +226,10 @@
                     notifyError('请求失败：' + xhr.status + ' ' + xhr.statusText);
                 },
                 complete: function () {
-                    $btn.prop('disabled', false).text('注册');
+                    // 注册成功后保持按钮禁用，等待跳转，避免重复提交
+                    if (!redirecting) {
+                        $btn.prop('disabled', false).text('注册');
+                    }
                 }
             });
             return false; // 阻止表单的默认提交行为
