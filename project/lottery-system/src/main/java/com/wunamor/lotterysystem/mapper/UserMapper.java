@@ -17,4 +17,25 @@ public interface UserMapper extends BaseMapper<UserDO> {
     @Select("select count(1) from user where phone_number = #{phoneNumber}")
     Integer getUserCountByPhone(@Param("phoneNumber") Encrypt phoneNumber);
 
+    /**
+     * 按用户名查询用户（登录用）。
+     * <p>
+     * user_name 已有唯一索引 uk_user_name，这里不再加 limit 1：
+     * 万一数据重复，宁可直接报错，也不要静默登进另一个人的账号。
+     */
+    @Select("select * from user where user_name = #{userName}")
+    UserDO getUserByUserName(@Param("userName") String userName);
+
+    /**
+     * 按邮箱查询用户（登录用）。email 已有唯一索引 uk_email
+     */
+    @Select("select * from user where email = #{email}")
+    UserDO getUserByEmail(@Param("email") String email);
+
+    /**
+     * 用户名是否已被占用（注册校验用）
+     */
+    @Select("select count(1) from user where user_name = #{userName}")
+    Integer getUserCountByUserName(@Param("userName") String userName);
+
 }

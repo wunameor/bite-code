@@ -2,6 +2,7 @@ package com.wunamor.lotterysystem.controller.request;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import lombok.Data;
 
 import java.io.Serial;
@@ -24,4 +25,11 @@ public class UserRegisterRequest implements Serializable {
 
     @NotNull(message = "用户类型不能为空")
     private Integer identity;
+
+    /**
+     * 邮箱验证码：由 /user/email-code 下发，5 分钟内有效且单次可用
+     */
+    @NotBlank(message = "邮箱验证码不能为空")
+    @Pattern(regexp = "\\d{6}", message = "验证码必须是 6 位数字")
+    private String emailCode;
 }

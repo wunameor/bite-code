@@ -39,6 +39,30 @@
             text-align: center;
             margin-bottom: 60px;
         }
+
+        /* 验证码输入框 + 获取按钮 */
+        .code-box {
+            display: flex;
+            align-items: center;
+        }
+
+        .code-box .form-control {
+            width: calc(100% - 140px);
+        }
+
+        .code-box .btn-primary {
+            width: 126px;
+            height: 48px;
+            margin-left: 10px;
+            box-sizing: border-box;
+            font-size: 15px;
+            padding: 0;
+        }
+
+        .code-box .btn-primary:disabled {
+            opacity: .65;
+            cursor: not-allowed;
+        }
     </style>
 </head>
 <body>
@@ -54,6 +78,15 @@
             <label for="mail">邮箱</label>
             <input type="email" class="form-control" id="mail"
                    name="mail" placeholder="请输入邮箱" autocomplete="email" required>
+        </div>
+        <div class="form-group">
+            <label for="emailCode">邮箱验证码</label>
+            <div class="code-box">
+                <input type="text" class="form-control" id="emailCode" name="emailCode"
+                       placeholder="请输入 6 位验证码" inputmode="numeric" maxlength="6"
+                       autocomplete="one-time-code" required>
+                <button type="button" class="btn btn-primary" id="sendCodeBtn">获取验证码</button>
+            </div>
         </div>
         <div class="form-group">
             <label for="phoneNumber">手机号</label>
@@ -115,6 +148,12 @@
                 required: true,
                 phoneFormat: true
             },
+            emailCode: {
+                required: true,
+                digits: true,
+                minlength: 6,
+                maxlength: 6
+            },
             password: {
                 required: true,
                 passwordFormat: true
@@ -125,6 +164,12 @@
             mail: "请输入有效的邮箱地址",
             phoneNumber: {
                 required: "请输入您的手机号"
+            },
+            emailCode: {
+                required: "请输入邮箱验证码",
+                digits: "验证码只能是数字",
+                minlength: "验证码为 6 位数字",
+                maxlength: "验证码为 6 位数字"
             },
             password: {
                 required: "请输入密码"
@@ -140,7 +185,8 @@
                 email: $('#mail').val().trim().toLowerCase(),
                 phoneNumber: $('#phoneNumber').val().trim(),
                 password: $('#password').val(),
-                identity: identity
+                identity: identity,
+                emailCode: $('#emailCode').val().trim()
             };
 
             $.ajax({
@@ -165,6 +211,60 @@
             });
             return false; // 阻止表单的默认提交行为
         }
+    });
+
+    // ==================== 获取邮箱验证码 ====================
+    var COUNTDOWN_SECONDS = 60;
+
+    function resetSendCodeBtn() {
+        $('#sendCodeBtn').prop('disabled', false).text('获取验证码');
+    }
+
+    function startCountdown($btn, seconds) {
+        var left = seconds;
+        $btn.text(left + 's 后重发');
+        var timer = setInterval(function () {
+            left--;
+            if (left <= 0) {
+                clearInterval(timer);
+                resetSendCodeBtn();
+            } else {
+                $btn.text(left + 's 后重发');
+            }
+        }, 1000);
+    }
+
+    $('#sendCodeBtn').on('click', function () {
+        var $btn = $(this);
+
+        // 复用 jQuery Validate 的邮箱校验，格式不对直接在输入框下方提示
+        if (!$('#registerForm').validate().element('#mail')) {
+            return;
+        }
+
+        var email = $('#mail').val().trim().toLowerCase();
+        $btn.prop('disabled', true).text('发送中...');
+
+        $.ajax({
+            url: '/user/email-code',
+            type: 'post',
+            contentType: 'application/json',
+            data: JSON.stringify({scene: 'REGISTER', account: email}),
+            success: function (result) {
+                if (result.code === 200) {
+                    notifySuccess('验证码已发送，请查收邮箱（5 分钟内有效）');
+                    $('#emailCode').val('');
+                    startCountdown($btn, COUNTDOWN_SECONDS);
+                } else {
+                    notifyError(result.message);
+                    resetSendCodeBtn();
+                }
+            },
+            error: function (xhr) {
+                notifyError('发送失败：' + xhr.status + ' ' + xhr.statusText);
+                resetSendCodeBtn();
+            }
+        });
     });
 </script>
 </body>

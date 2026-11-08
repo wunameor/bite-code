@@ -19,6 +19,27 @@ spring:
           max-idle: 8 #最大空闲连接数, 默认8
           min-idle: 0  #最小空闲连接数
           max-wait: 5s  #请求获取连接等待时间
+  # QQ 邮箱 SMTP。授权码获取：QQ邮箱 -> 设置 -> 账号 -> 开启「POP3/SMTP 服务」-> 短信验证 -> 16 位授权码
+  # 凭证不要写死在文件里，在 IDEA 的 Run/Debug Configuration -> Environment variables 中配置：
+  #   MAIL_USERNAME=你的QQ号@qq.com
+  #   MAIL_PASSWORD=上一步拿到的授权码（不是 QQ 密码）
+  mail:
+    host: smtp.qq.com
+    port: 465
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    default-encoding: UTF-8
+    # 设为 true 可在启动时立刻校验 SMTP 配置，凭证配好后再打开
+    test-connection: false
+    properties:
+      mail:
+        smtp:
+          auth: true
+          ssl:
+            enable: true
+          connectiontimeout: 5000
+          timeout: 5000
+          writetimeout: 5000
 
 logging:
   file:
