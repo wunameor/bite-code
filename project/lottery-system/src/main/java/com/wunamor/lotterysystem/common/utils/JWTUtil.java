@@ -64,8 +64,8 @@ public class JWTUtil {
             //解析token
             claims = jwtParserBuilder.build().parseClaimsJws(jwt).getBody();
         }catch (Exception e){
-            // 签名验证失败
-            logger.error("解析令牌错误,jwt:{}", jwt, e);
+            // 签名验证失败 / 令牌过期都属于正常业务分支，用 warn 记录，且不要打印完整 token
+            logger.warn("解析令牌失败: {}", e.getMessage());
         }
         return claims;
 

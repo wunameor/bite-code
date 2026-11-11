@@ -20,7 +20,9 @@ public class UserRegisterRequest implements Serializable {
     @NotBlank(message = "手机号不能为空")
     private String phoneNumber;
 
-    @NotBlank(message = "密码不能为空")
+    /**
+     * 密码：管理员必填，普通用户可空（普通用户走邮箱验证码登录）
+     */
     private String password;
 
     @NotNull(message = "用户类型不能为空")

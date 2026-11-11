@@ -54,6 +54,9 @@ public class UserServiceImpl implements UserService {
         // 还需要处理一下密码
         if (StringUtils.hasText(registerCommand.getPassword())) {
             userDO.setPassword(DigestUtil.sha256Hex(registerCommand.getPassword()));
+        } else {
+            // 普通用户可以不设密码，落库为 NULL 而不是空串
+            userDO.setPassword(null);
         }
         userDO.setPhoneNumber(new Encrypt(registerCommand.getPhoneNumber()));
         // 2. 插入到数据库中
@@ -217,13 +220,15 @@ public class UserServiceImpl implements UserService {
             throw new ServiceException(ServiceErrorCodeConstants.REGISTER_IDENTITY_PATTERN_ERROR);
         }
 
-        // 管理员密码不能为空
-        if (UserIdentityEnum.ADMIN.getId() == registerCommand.getIdentity() && registerCommand.getPassword().isEmpty()) {
+        // 管理员必须有密码；普通用户可以没有密码（只能走邮箱验证码登录）
+        boolean isAdmin = UserIdentityEnum.ADMIN.getId() == registerCommand.getIdentity();
+        String password = registerCommand.getPassword();
+        if (isAdmin && !StringUtils.hasText(password)) {
             throw new ServiceException(ServiceErrorCodeConstants.REGISTER_PASSWORD_IS_EMPTY);
         }
 
-        // 密码强度验证
-        if (!RegexUtil.checkPassword(registerCommand.getPassword())) {
+        // 填了密码才校验强度
+        if (StringUtils.hasText(password) && !RegexUtil.checkPassword(password)) {
             throw new ServiceException(ServiceErrorCodeConstants.REGISTER_PASSWORD_PATTERN_ERROR);
         }
 

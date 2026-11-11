@@ -208,6 +208,7 @@
 <!-- 引入jQuery和Bootstrap的JavaScript -->
 <script
         src="./js/jquery.min.js"></script>
+<script src="./js/auth.js"></script>
 <script>
   // 监听子message事件,实现子页面向父页面传递
   window.addEventListener('message', function(e){
@@ -241,7 +242,7 @@
     var dataDesc = $(this).data('desc');
     var page = '';
     if (dataDesc === "renyuancreate") {
-      page = $(this).attr('href') + "?param=" + randomParam + "&jumpList=true&admin=false";
+      page = $(this).attr('href') + "?param=" + randomParam + "&jumpList=true";
     } else {
       page = $(this).attr('href') + "?param=" + randomParam;
     }

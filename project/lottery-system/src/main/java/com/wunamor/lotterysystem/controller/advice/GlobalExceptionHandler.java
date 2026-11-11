@@ -6,11 +6,14 @@ import com.wunamor.lotterysystem.common.exception.ControllerException;
 import com.wunamor.lotterysystem.common.exception.ServiceException;
 import com.wunamor.lotterysystem.common.pojo.CommonResult;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -49,6 +52,14 @@ public class GlobalExceptionHandler {
     public CommonResult<?> httpMessageNotReadableException(HttpMessageNotReadableException e) {
         log.error("请求体解析失败：{}", e.getMessage());
         return CommonResult.error(GlobalErrorCodeConstants.BAD_REQUEST);
+    }
+
+    /** 静态资源不存在（含浏览器自动请求的 *.map、/.well-known 等） */
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<CommonResult<?>> noResourceFoundException(NoResourceFoundException e) {
+        log.debug("静态资源不存在：{}", e.getResourcePath());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(CommonResult.error(GlobalErrorCodeConstants.NOT_FOUND));
     }
 
     @ExceptionHandler(Exception.class)

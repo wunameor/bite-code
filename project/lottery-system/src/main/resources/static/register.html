@@ -13,6 +13,7 @@
     <script src="/js/jquery.min.js"></script>
     <script src="/js/jquery.validate.min.js"></script>
     <script src="/js/toastr.min.js"></script>
+    <script src="/js/auth.js"></script>
 
     <style>
         body {
@@ -69,6 +70,21 @@
 <div class="register-container">
     <h2>填写注册信息</h2>
     <form id="registerForm" method="post">
+        <div class="form-group" id="identityGroup">
+            <label>用户类型</label>
+            <div>
+                <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="radio" name="identity"
+                           id="identityNormal" value="1" checked>
+                    <label class="form-check-label" for="identityNormal">普通用户</label>
+                </div>
+                <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="radio" name="identity"
+                           id="identityAdmin" value="0">
+                    <label class="form-check-label" for="identityAdmin">管理员</label>
+                </div>
+            </div>
+        </div>
         <div class="form-group">
             <label for="name">姓名</label>
             <input type="text" class="form-control" id="name"
@@ -94,13 +110,13 @@
                    name="phoneNumber" placeholder="请输入手机号" autocomplete="tel"
                    maxlength="11" required>
         </div>
-        <div class="form-group">
+        <div class="form-group" id="passwordGroup">
             <label for="password">密码</label>
             <input type="password" class="form-control" id="password"
                    name="password" placeholder="请输入 6-12 位字母或数字"
                    autocomplete="new-password" maxlength="12" required>
         </div>
-        <div class="form-group">
+        <div class="form-group" id="confirmPasswordGroup">
             <label for="confirmPassword">确认密码</label>
             <input type="password" class="form-control" id="confirmPassword"
                    name="confirmPassword" placeholder="请再次输入密码"
@@ -130,8 +146,25 @@
     }
 
     var params = new URLSearchParams(window.location.search);
-    // 默认注册普通用户（identity=1）；只有显式 ?admin=true 才注册管理员（identity=0）
-    var identity = params.get('admin') === 'true' ? 0 : 1;
+    var jumpList = params.get('jumpList') === 'true';
+    // 后台 iframe 里才允许选择用户类型；公开页面强制普通用户
+    var canChooseIdentity = jumpList || window.self !== window.top;
+
+    function isAdminSelected() {
+        return canChooseIdentity && $('input[name=identity]:checked').val() === '0';
+    }
+
+    function togglePasswordFields() {
+        var admin = isAdminSelected();
+        $('#passwordGroup, #confirmPasswordGroup').toggle(admin);
+        if (!admin) {
+            $('#password, #confirmPassword').val('');
+        }
+    }
+
+    $('#identityGroup').toggle(canChooseIdentity);
+    $('input[name=identity]').on('change', togglePasswordFields);
+    togglePasswordFields();
 
     // jQuery Validate 核心包不含 pattern 方法，这里自定义两个校验方法
     $.validator.addMethod('phoneFormat', function (value, element) {
@@ -161,11 +194,15 @@
                 maxlength: 6
             },
             password: {
-                required: true,
+                required: function () {
+                    return isAdminSelected();
+                },
                 passwordFormat: true
             },
             confirmPassword: {
-                required: true,
+                required: function () {
+                    return isAdminSelected();
+                },
                 equalTo: '#password'
             }
         },
@@ -195,12 +232,13 @@
             // 防止重复提交
             $btn.prop('disabled', true).text('注册中...');
 
+            var admin = isAdminSelected();
             var formData = {
                 userName: $('#name').val().trim(),
                 email: $('#mail').val().trim().toLowerCase(),
                 phoneNumber: $('#phoneNumber').val().trim(),
-                password: $('#password').val(),
-                identity: identity,
+                password: admin ? $('#password').val() : '',
+                identity: admin ? 0 : 1,
                 emailCode: $('#emailCode').val().trim()
             };
 
@@ -212,12 +250,19 @@
                 success: function (result) {
                     if (result.code === 200) {
                         redirecting = true;
-                        notifySuccess('注册成功，即将跳转到登录页');
-                        // 管理员注册回管理员登录页，普通用户回普通登录页
-                        var target = identity === 0 ? 'blogin.html' : 'login.html';
-                        setTimeout(function () {
-                            location.href = target;
-                        }, 1000);
+                        notifySuccess('注册成功');
+                        if (jumpList) {
+                            // 后台 iframe：注册完回到人员列表
+                            window.parent.postMessage({
+                                from: 'user-list.html',
+                                id: '#userList'
+                            }, '*');
+                        } else {
+                            var target = admin ? 'blogin.html' : 'login.html';
+                            setTimeout(function () {
+                                location.href = target;
+                            }, 1000);
+                        }
                     } else {
                         notifyError(result.message);
                     }
@@ -271,6 +316,7 @@
         $.ajax({
             url: '/user/email-code',
             type: 'post',
+            timeout: 15000,
             contentType: 'application/json',
             data: JSON.stringify({scene: 'REGISTER', account: email}),
             success: function (result) {

@@ -59,7 +59,7 @@
     </form>
 
     <div class="register-link">
-      还没有账号，去<a href="register.html?admin=true">注册</a>
+      账号由系统管理员统一开通
     </div>
   </div>
 </div>
@@ -252,6 +252,7 @@
     $.ajax({
       url: '/user/email-code',
       type: 'post',
+      timeout: 15000,
       contentType: 'application/json',
       data: JSON.stringify({
         scene: 'LOGIN',

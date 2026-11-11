@@ -139,7 +139,7 @@
         <button type="submit" class="btn btn-primary btn-block">登录</button>
     </form>
 
-    <p class="register-link">还没有账号？<a href="/register.html">立即注册</a></p>
+    <p class="register-link">还没有账号？请联系管理员开通</p>
 </div>
 
 <script>
@@ -237,6 +237,7 @@
                         localStorage.setItem('userId', result.data.userId);
                         localStorage.setItem('userName', result.data.userName);
                         notifySuccess('登录成功，欢迎 ' + result.data.userName);
+                        location.href = "admin.html"
                     } else {
                         notifyError(result.message);
                     }
@@ -286,6 +287,7 @@
         $.ajax({
             url: '/user/email-code',
             type: 'post',
+            timeout: 15000,
             contentType: 'application/json',
             data: JSON.stringify({scene: 'LOGIN', account: account}),
             success: function (result) {
