@@ -3,8 +3,11 @@ package com.wunamor.lotterysystem.service;
 import com.wunamor.lotterysystem.service.command.EmailCodeCommand;
 import com.wunamor.lotterysystem.service.command.UserLoginCommand;
 import com.wunamor.lotterysystem.service.command.UserRegisterCommand;
+import com.wunamor.lotterysystem.service.dto.UserListDTO;
 import com.wunamor.lotterysystem.service.dto.UserLoginDTO;
 import com.wunamor.lotterysystem.service.dto.UserRegisterDTO;
+
+import java.util.List;
 
 public interface UserService {
     UserRegisterDTO register(UserRegisterCommand registerCommand);
@@ -20,4 +23,9 @@ public interface UserService {
      * 登录场景下用户不存在时静默返回，避免该接口被用来枚举账号。
      */
     void sendEmailCode(EmailCodeCommand emailCodeCommand);
+
+    /**
+     * 人员列表：按 id 倒序返回 id、姓名、身份
+     */
+    List<UserListDTO> listUsers();
 }

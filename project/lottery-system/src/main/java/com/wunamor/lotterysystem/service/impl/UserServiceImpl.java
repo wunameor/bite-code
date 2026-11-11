@@ -14,6 +14,7 @@ import com.wunamor.lotterysystem.service.UserService;
 import com.wunamor.lotterysystem.service.command.EmailCodeCommand;
 import com.wunamor.lotterysystem.service.command.UserLoginCommand;
 import com.wunamor.lotterysystem.service.command.UserRegisterCommand;
+import com.wunamor.lotterysystem.service.dto.UserListDTO;
 import com.wunamor.lotterysystem.service.dto.UserLoginDTO;
 import com.wunamor.lotterysystem.service.dto.UserRegisterDTO;
 import com.wunamor.lotterysystem.service.enums.UserIdentityEnum;
@@ -25,7 +26,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -159,6 +162,26 @@ public class UserServiceImpl implements UserService {
                 emailCodeService.sendCode(userDO.getEmail(), emailCodeCommand.getScene());
             }
         }
+    }
+
+    @Override
+    public List<UserListDTO> listUsers() {
+        return userMapper.listUsers().stream()
+                .map(this::buildUserListDTO)
+                .collect(Collectors.toList());
+    }
+
+    private UserListDTO buildUserListDTO(UserDO userDO) {
+        UserListDTO userListDTO = new UserListDTO();
+        userListDTO.setUserId(userDO.getId());
+        userListDTO.setUserName(userDO.getUserName());
+        userListDTO.setIdentity(userDO.getIdentity());
+
+        UserIdentityEnum identityEnum = userDO.getIdentity() == null
+                ? null
+                : UserIdentityEnum.getValueById(userDO.getIdentity());
+        userListDTO.setIdentityDesc(identityEnum == null ? "未知" : identityEnum.getIdentity());
+        return userListDTO;
     }
 
     /**

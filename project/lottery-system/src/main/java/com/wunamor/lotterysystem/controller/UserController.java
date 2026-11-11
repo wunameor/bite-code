@@ -6,22 +6,28 @@ import com.wunamor.lotterysystem.common.pojo.CommonResult;
 import com.wunamor.lotterysystem.controller.request.EmailCodeRequest;
 import com.wunamor.lotterysystem.controller.request.UserLoginRequest;
 import com.wunamor.lotterysystem.controller.request.UserRegisterRequest;
+import com.wunamor.lotterysystem.controller.response.UserListResponse;
 import com.wunamor.lotterysystem.controller.response.UserLoginResponse;
 import com.wunamor.lotterysystem.controller.response.UserRegisterResponse;
 import com.wunamor.lotterysystem.service.UserService;
 import com.wunamor.lotterysystem.service.command.EmailCodeCommand;
 import com.wunamor.lotterysystem.service.command.UserLoginCommand;
 import com.wunamor.lotterysystem.service.command.UserRegisterCommand;
+import com.wunamor.lotterysystem.service.dto.UserListDTO;
 import com.wunamor.lotterysystem.service.dto.UserLoginDTO;
 import com.wunamor.lotterysystem.service.dto.UserRegisterDTO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Slf4j
 @RestController
@@ -78,5 +84,18 @@ public class UserController {
         UserLoginResponse userLoginResponse = new UserLoginResponse();
         BeanUtils.copyProperties(login, userLoginResponse);
         return userLoginResponse;
+    }
+
+    /**
+     * 人员列表：仅管理员可访问，按 id 倒序
+     */
+    @GetMapping("/list")
+    public List<UserListResponse> listUsers() {
+        List<UserListDTO> users = userService.listUsers();
+        return users.stream().map(user -> {
+            UserListResponse response = new UserListResponse();
+            BeanUtils.copyProperties(user, response);
+            return response;
+        }).collect(Collectors.toList());
     }
 }

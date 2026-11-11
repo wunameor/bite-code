@@ -9,6 +9,8 @@ import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 
+import java.util.List;
+
 @Mapper
 public interface UserMapper extends BaseMapper<UserDO> {
     @Select("select count(1) from user where email = #{mail}")
@@ -37,5 +39,11 @@ public interface UserMapper extends BaseMapper<UserDO> {
      */
     @Select("select count(1) from user where user_name = #{userName}")
     Integer getUserCountByUserName(@Param("userName") String userName);
+
+    /**
+     * 人员列表：只查展示需要的列，避免把密码、手机号带出来；按 id 倒序
+     */
+    @Select("select id, user_name, identity from user order by id desc")
+    List<UserDO> listUsers();
 
 }

@@ -96,9 +96,8 @@
                 <th>身份</th>
             </tr>
             </thead>
-            <tbody>
             <tbody id="userList">
-            <!-- 奖品列表将动态插入这里 -->
+            <!-- 人员列表将动态插入这里 -->
             </tbody>
         </table>
     </div>
@@ -108,49 +107,50 @@
 <script src="./js/jquery.min.js"></script>
 <script src="./js/auth.js"></script>
 <script>
-    var userToken = localStorage.getItem("user_token");
+    function escapeHtml(value) {
+        return $('<div>').text(value == null ? '' : value).html();
+    }
 
     // 封装AJAX请求的函数
     function fetchUserData() {
-
-        // 发送AJAX请求
         $.ajax({
-            url: '',
-            type: '',
-            headers: {
-                // jwt
+            url: '/user/list',
+            type: 'get',
+            success: function (result) {
+                if (result.code !== 200) {
+                    alert('查询用户列表失败！' + result.message);
+                    return;
+                }
+                var userList = $('#userList').empty();
+                (result.data || []).forEach(function (user) {
+                    userList.append(
+                        '<tr>' +
+                        '<td>' + user.userId + '</td>' +
+                        '<td>' + escapeHtml(user.userName) + '</td>' +
+                        '<td>' + escapeHtml(user.identityDesc) + '</td>' +
+                        '</tr>'
+                    );
+                });
             },
-            success: function(result) {
-                if (result.code != 200) {
-                    alert("查询用户列表失败！" + result.msg);
-                } else {
-                    var users = result.data;
-                    // 清空现有的表格内容
-                    var userList = $('#userList');
-                    userList.empty();
-                    users.forEach(function(user) {
-                        userList.append('<tr> ' +
-                        '<td>' +  + '</td>' +
-                        '</tr>');
-                    });
-                } // else end
-            },
-            error: function(err){
-                console.log(err);
-                if(err!=null && err.status==401){
-                    alert("用户未登录, 即将跳转到登录页!");
+            error: function (xhr) {
+                console.log(xhr);
+                if (xhr.status === 401) {
+                    alert('用户未登录，即将跳转到登录页!');
                     // 父页面跳转登录页
-                    window.parent.location.href = "/blogin.html";
+                    window.parent.location.href = '/blogin.html';
+                } else if (xhr.status === 403) {
+                    alert('无权限查看人员列表');
+                } else {
+                    alert('查询用户列表失败：' + xhr.status);
                 }
             }
         });
     }
 
     // 初始化加载用户数据
-    $(document).ready(function() {
+    $(document).ready(function () {
         fetchUserData();
     });
-
 </script>
 </body>
 </html>

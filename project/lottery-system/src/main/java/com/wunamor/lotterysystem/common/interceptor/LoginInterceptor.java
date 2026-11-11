@@ -16,6 +16,7 @@ import org.springframework.web.servlet.HandlerInterceptor;
 import org.springframework.web.servlet.resource.ResourceHttpRequestHandler;
 
 import java.io.IOException;
+import java.util.Set;
 
 @Slf4j
 @Component
@@ -24,7 +25,7 @@ public class LoginInterceptor implements HandlerInterceptor {
     private static final String BEARER_PREFIX = "Bearer ";
 
     /** 仅管理员可访问的接口 */
-    private static final String ADMIN_ONLY_PATH = "/user/register";
+    private static final Set<String> ADMIN_ONLY_PATHS = Set.of("/user/register", "/user/list");
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
@@ -52,8 +53,8 @@ public class LoginInterceptor implements HandlerInterceptor {
             return false;
         }
 
-        // 注册接口只允许管理员调用，避免普通用户创建管理员
-        if (ADMIN_ONLY_PATH.equals(request.getRequestURI()) && !isAdmin(claims)) {
+        // 注册、人员列表只允许管理员访问，避免普通用户创建管理员或查看全部人员
+        if (ADMIN_ONLY_PATHS.contains(request.getRequestURI()) && !isAdmin(claims)) {
             log.warn("非管理员尝试访问 {}，userId: {}", request.getRequestURI(), claims.get("userId"));
             writeForbidden(response);
             return false;
