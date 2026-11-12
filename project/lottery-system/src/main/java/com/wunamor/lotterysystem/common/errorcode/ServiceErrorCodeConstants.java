@@ -32,11 +32,24 @@ public interface ServiceErrorCodeConstants {
     ErrorCode REGISTER_USER_NAME_USED = new ErrorCode(1019, "用户名已经被使用");
     ErrorCode REGISTER_USER_NAME_CONTAINS_AT = new ErrorCode(1020, "用户名不能包含 @");
 
+    // ============ 文件上传错误码 ============
+    ErrorCode FILE_IS_EMPTY = new ErrorCode(1021, "上传文件不能为空");
+    ErrorCode FILE_TOO_LARGE = new ErrorCode(1022, "上传文件过大");
+    ErrorCode FILE_TYPE_NOT_ALLOWED = new ErrorCode(1023, "只支持 jpg、jpeg、png、gif、webp 图片");
+    ErrorCode FILE_UPLOAD_ERROR = new ErrorCode(1024, "图片上传失败，请稍后再试");
+    ErrorCode FILE_SCENE_NOT_ALLOWED = new ErrorCode(1025, "不支持的文件业务场景");
+
     // ============ 活动模块错误码 ===========
 
 
     // ============ 奖品模块错误码 ===========
-
+    ErrorCode PRIZE_INFO_IS_EMPTY = new ErrorCode(1026, "奖品信息为空");
+    ErrorCode PRIZE_NAME_IS_EMPTY = new ErrorCode(1027, "奖品名称不能为空");
+    ErrorCode PRIZE_NAME_TOO_LONG = new ErrorCode(1028, "奖品名称不能超过 255 个字符");
+    ErrorCode PRIZE_PRICE_INVALID = new ErrorCode(1029, "奖品价格必须大于 0 且不超过 99999999.99");
+    ErrorCode PRIZE_DESCRIPTION_TOO_LONG = new ErrorCode(1030, "奖品描述不能超过 255 个字符");
+    ErrorCode PRIZE_IMAGE_IS_EMPTY = new ErrorCode(1031, "请上传奖品图片");
+    ErrorCode PRIZE_CREATE_ERROR = new ErrorCode(1032, "奖品创建失败，请稍后再试");
 
     // ============ 抽奖错误码 ===========
 

@@ -124,6 +124,44 @@ class LoginInterceptorTest {
         assertTrue(interceptor.preHandle(request, new MockHttpServletResponse(), new Object()));
     }
 
+    @Test
+    void fileUploadWithNormalUserTokenReturns403() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/file/upload/prize");
+        request.addHeader("Authorization", "Bearer " + tokenWithIdentity(1));
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        assertFalse(interceptor.preHandle(request, response, new Object()));
+        assertEquals(403, response.getStatus());
+        assertTrue(response.getContentAsString().contains("\"code\":403"));
+    }
+
+    @Test
+    void fileUploadWithAdminTokenPasses() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/file/upload/prize");
+        request.addHeader("Authorization", "Bearer " + tokenWithIdentity(0));
+
+        assertTrue(interceptor.preHandle(request, new MockHttpServletResponse(), new Object()));
+    }
+
+    @Test
+    void prizeCreateWithNormalUserTokenReturns403() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/prize/create");
+        request.addHeader("Authorization", "Bearer " + tokenWithIdentity(1));
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        assertFalse(interceptor.preHandle(request, response, new Object()));
+        assertEquals(403, response.getStatus());
+        assertTrue(response.getContentAsString().contains("\"code\":403"));
+    }
+
+    @Test
+    void prizeCreateWithAdminTokenPasses() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/prize/create");
+        request.addHeader("Authorization", "Bearer " + tokenWithIdentity(0));
+
+        assertTrue(interceptor.preHandle(request, new MockHttpServletResponse(), new Object()));
+    }
+
     private String validToken() {
         return JWTUtil.genJwt(Map.<String, Object>of("userId", 1));
     }

@@ -2,17 +2,20 @@ package com.wunamor.lotterysystem.controller.advice;
 
 
 import com.wunamor.lotterysystem.common.errorcode.GlobalErrorCodeConstants;
+import com.wunamor.lotterysystem.common.errorcode.ServiceErrorCodeConstants;
 import com.wunamor.lotterysystem.common.exception.ControllerException;
 import com.wunamor.lotterysystem.common.exception.ServiceException;
 import com.wunamor.lotterysystem.common.pojo.CommonResult;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.json.JsonParseException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.validation.BindException;
 import org.springframework.validation.FieldError;
-import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.Objects;
@@ -34,9 +37,9 @@ public class GlobalExceptionHandler {
         return CommonResult.error(e.getCode(), e.getMessage());
     }
 
-    /** @Validated 校验失败（@RequestBody + @Validated） */
-    @ExceptionHandler(MethodArgumentNotValidException.class)
-    public CommonResult<?> methodArgumentNotValidException(MethodArgumentNotValidException e) {
+    /** @Valid 校验失败（@RequestBody / @ModelAttribute） */
+    @ExceptionHandler(BindException.class)
+    public CommonResult<?> bindException(BindException e) {
         String message = e.getBindingResult().getFieldErrors().stream()
                 .map(FieldError::getDefaultMessage)
                 .filter(Objects::nonNull)
@@ -52,6 +55,20 @@ public class GlobalExceptionHandler {
     public CommonResult<?> httpMessageNotReadableException(HttpMessageNotReadableException e) {
         log.error("请求体解析失败：{}", e.getMessage());
         return CommonResult.error(GlobalErrorCodeConstants.BAD_REQUEST);
+    }
+
+    /** multipart 里的 param 不是合法 JSON */
+    @ExceptionHandler(JsonParseException.class)
+    public CommonResult<?> jsonParseException(JsonParseException e) {
+        log.error("JSON 解析失败：{}", e.getMessage());
+        return CommonResult.error(GlobalErrorCodeConstants.BAD_REQUEST);
+    }
+
+    /** 上传文件超过 spring.servlet.multipart.max-file-size */
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public CommonResult<?> maxUploadSizeExceededException(MaxUploadSizeExceededException e) {
+        log.warn("上传文件过大：{}", e.getMessage());
+        return CommonResult.error(ServiceErrorCodeConstants.FILE_TOO_LARGE);
     }
 
     /** 静态资源不存在（含浏览器自动请求的 *.map、/.well-known 等） */

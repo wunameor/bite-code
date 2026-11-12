@@ -116,7 +116,7 @@
         <div class="prize-row">
             <div class="form-group">
                 <label for="prizeName">奖品名称</label>
-                <input class="form-control" type="text" placeholder="请输入奖品名称" id="prizeName" name="prizeName" class="prize-name" required>
+                <input class="form-control" type="text" placeholder="请输入奖品名称" id="prizeName" name="prizeName" class="prize-name" maxlength="255" required>
             </div>
             <div class="form-group">
                 <label for="prizeName">奖品图片</label>
@@ -137,7 +137,7 @@
             </div>
             <div class="form-group">
                 <label for="description">奖品描述</label>
-                <textarea class="form-control" id="description" placeholder="请输入奖品描述"  name="description" class="prize-description" required></textarea>
+                <textarea class="form-control" id="description" placeholder="请输入奖品描述"  name="description" class="prize-description" maxlength="255" required></textarea>
             </div>
         </div>
     </div>
@@ -147,61 +147,79 @@
 <script src="./js/jquery.min.js"></script>
 <script src="./js/auth.js"></script>
 <script>
-    var userToken = localStorage.getItem("user_token");
+    var previewObjectUrl = null;
 
-    var formData = new FormData();
-    // 提交奖品数据的函数
+    // 提交奖品：奖品信息和图片放在同一个 multipart 请求里，由后端内部调用上传服务
     function submitPrizes() {
-        var prizeName = $('#prizeName').val();
-        var description = $('#description').val();
+        var prizeName = $('#prizeName').val().trim();
+        var description = $('#description').val().trim();
         var price = $('#price').val();
-        formData.append("param", JSON.stringify({
-            prizeName:prizeName,
-            description:description,
-            price:price,
-        }));
-        // 发送POST请求到后端接口
+        var file = document.getElementById('prizeImageUrl').files[0];
+
+        if (!prizeName) {
+            alert('请输入奖品名称');
+            return;
+        }
+        if (!price || Number(price) <= 0) {
+            alert('请输入正确的奖品价格');
+            return;
+        }
+        if (!description) {
+            alert('请输入奖品描述');
+            return;
+        }
+        if (!file) {
+            alert('请选择奖品图片');
+            return;
+        }
+
+        var formData = new FormData();
+        formData.append('prizeName', prizeName);
+        formData.append('description', description);
+        formData.append('price', price);
+        formData.append('prizePic', file);
+
         $.ajax({
-            url: '',
-            type: '',
-            // 不设置Content-Type请求头，因为数据将通过其他方式传递，例如通过FormData。
-            contentType : false,
-            // 不要处理发送的数据
-            processData : false,
-            headers: {
-                // jwt
-            },
+            url: '/prize/create',
+            type: 'post',
             data: formData,
-            success: function(result) {
-                if(result.code == 200) {
+            processData: false,
+            contentType: false,
+            success: function (result) {
+                if (result.code === 200) {
                     alert('奖品创建成功！');
+                    window.location.href = '/prizes-list.html';
                 } else {
-                    alert('创建奖品失败：' + result.msg);
+                    alert('创建奖品失败：' + result.message);
                 }
             },
-            error:function(err){
-                console.log(err);
-                if(err!=null && err.status==401){
-                    alert("用户未登录, 即将跳转到登录页!");
-                    // 跳转登录页
-                    window.location.href = "/blogin.html";
-                    window.parent.location.href = "/blogin.html";//让父页面一起跳转
+            error: function (xhr) {
+                console.log(xhr);
+                if (xhr.status === 401) {
+                    alert('用户未登录，即将跳转到登录页!');
+                    window.location.href = '/blogin.html';
+                    window.parent.location.href = '/blogin.html';
+                } else if (xhr.status === 403) {
+                    alert('无权限创建奖品');
+                } else {
+                    alert('创建奖品失败：' + xhr.status);
                 }
             }
         });
     }
-    // 上传图片：读取用户通过文件输入选择的图片文件，并将其显示在一个网页元素中
-    function showImg(){
-        var file =  document.getElementById("prizeImageUrl").files[0];
-        formData.append("prizePic",file);
-        var r= new FileReader();
-        result = r.readAsDataURL(file);
-        r.onload=function (e) {
-            console.log(e)
-            $('#previewImg').attr("src", e.target.result).show();
-        }
-    }
 
+    // 只做本地预览，不在这里上传；图片随表单一起提交
+    function showImg() {
+        var file = document.getElementById('prizeImageUrl').files[0];
+        if (!file) {
+            return;
+        }
+        if (previewObjectUrl) {
+            URL.revokeObjectURL(previewObjectUrl);
+        }
+        previewObjectUrl = URL.createObjectURL(file);
+        $('#previewImg').attr('src', previewObjectUrl).show();
+    }
 </script>
 </body>
 </html>

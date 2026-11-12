@@ -25,7 +25,8 @@ public class LoginInterceptor implements HandlerInterceptor {
     private static final String BEARER_PREFIX = "Bearer ";
 
     /** 仅管理员可访问的接口 */
-    private static final Set<String> ADMIN_ONLY_PATHS = Set.of("/user/register", "/user/list");
+    private static final Set<String> ADMIN_ONLY_PATHS = Set.of(
+            "/user/register", "/user/list", "/file/upload", "/prize/create");
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
@@ -53,8 +54,8 @@ public class LoginInterceptor implements HandlerInterceptor {
             return false;
         }
 
-        // 注册、人员列表只允许管理员访问，避免普通用户创建管理员或查看全部人员
-        if (ADMIN_ONLY_PATHS.contains(request.getRequestURI()) && !isAdmin(claims)) {
+        // 注册、人员列表、文件上传、创建奖品只允许管理员访问
+        if (isAdminOnlyPath(request.getRequestURI()) && !isAdmin(claims)) {
             log.warn("非管理员尝试访问 {}，userId: {}", request.getRequestURI(), claims.get("userId"));
             writeForbidden(response);
             return false;
@@ -66,6 +67,14 @@ public class LoginInterceptor implements HandlerInterceptor {
     private boolean isAdmin(Claims claims) {
         Object identity = claims.get("identity");
         return identity instanceof Number && ((Number) identity).intValue() == 0;
+    }
+
+    /**
+     * 支持 /file/upload/{scene} 这种带子路径的接口
+     */
+    private boolean isAdminOnlyPath(String uri) {
+        return ADMIN_ONLY_PATHS.stream()
+                .anyMatch(path -> uri.equals(path) || uri.startsWith(path + "/"));
     }
 
     /**
