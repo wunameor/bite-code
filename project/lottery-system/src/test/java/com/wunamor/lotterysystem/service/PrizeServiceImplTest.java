@@ -1,22 +1,29 @@
 package com.wunamor.lotterysystem.service;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.wunamor.lotterysystem.common.exception.ServiceException;
+import com.wunamor.lotterysystem.common.pojo.PageResult;
 import com.wunamor.lotterysystem.mapper.PrizeMapper;
 import com.wunamor.lotterysystem.mapper.dataobject.PrizeDO;
 import com.wunamor.lotterysystem.service.command.PrizeCreateCommand;
+import com.wunamor.lotterysystem.service.command.PrizeListCommand;
 import com.wunamor.lotterysystem.service.dto.FileUploadDTO;
 import com.wunamor.lotterysystem.service.dto.PrizeCreateDTO;
+import com.wunamor.lotterysystem.service.dto.PrizeDTO;
 import com.wunamor.lotterysystem.service.enums.FileSceneEnum;
 import com.wunamor.lotterysystem.service.impl.PrizeServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.mock.web.MockMultipartFile;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -104,6 +111,66 @@ class PrizeServiceImplTest {
         verify(fileService).deleteByUrl(upload.getUrl());
     }
 
+    @Test
+    void listPrizesReturnsPage() {
+        PrizeListCommand command = new PrizeListCommand();
+        command.setCurrentPage(1);
+        command.setPageSize(5);
+
+        Page<PrizeDO> dbPage = new Page<>(1, 5);
+        dbPage.setTotal(12);
+        dbPage.setRecords(List.of(prizeDO(3L, "三等奖"), prizeDO(2L, "二等奖")));
+        doReturn(dbPage).when(prizeMapper).selectPage(any(Page.class), any());
+
+        PageResult<PrizeDTO> result = prizeService.listPrizes(command);
+
+        assertEquals(12, result.getTotal());
+        assertEquals(1, result.getCurrentPage());
+        assertEquals(5, result.getPageSize());
+        assertEquals(3, result.getTotalPages());
+        assertEquals(2, result.getRecords().size());
+        assertEquals(3L, result.getRecords().get(0).getPrizeId());
+        assertEquals("三等奖", result.getRecords().get(0).getPrizeName());
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void listPrizesNormalizesInvalidPage() {
+        PrizeListCommand command = new PrizeListCommand();
+        command.setCurrentPage(0);
+        command.setPageSize(1000);
+
+        Page<PrizeDO> dbPage = new Page<>(1, 100);
+        dbPage.setTotal(0);
+        dbPage.setRecords(List.of());
+        doReturn(dbPage).when(prizeMapper).selectPage(any(Page.class), any());
+
+        PageResult<PrizeDTO> result = prizeService.listPrizes(command);
+
+        ArgumentCaptor<Page<PrizeDO>> pageCaptor = ArgumentCaptor.forClass(Page.class);
+        verify(prizeMapper).selectPage(pageCaptor.capture(), any());
+        assertEquals(1L, pageCaptor.getValue().getCurrent());
+        assertEquals(100L, pageCaptor.getValue().getSize());
+        assertEquals(0, result.getTotal());
+        assertEquals(0, result.getRecords().size());
+    }
+
+    @Test
+    void listPrizesEmpty() {
+        PrizeListCommand command = new PrizeListCommand();
+
+        Page<PrizeDO> dbPage = new Page<>(1, 10);
+        dbPage.setTotal(0);
+        dbPage.setRecords(List.of());
+        doReturn(dbPage).when(prizeMapper).selectPage(any(Page.class), any());
+
+        PageResult<PrizeDTO> result = prizeService.listPrizes(command);
+
+        assertEquals(0, result.getTotal());
+        assertEquals(0, result.getRecords().size());
+        assertEquals(0, result.getTotalPages());
+    }
+
     private PrizeCreateCommand validCommand() {
         PrizeCreateCommand command = new PrizeCreateCommand();
         command.setPrizeName("iPhone 16");
@@ -122,5 +189,15 @@ class PrizeServiceImplTest {
         upload.setUrl("/uploads/prize/2026/11/11/test.png");
         upload.setFileName("test.png");
         return upload;
+    }
+
+    private PrizeDO prizeDO(Long id, String name) {
+        PrizeDO prizeDO = new PrizeDO();
+        prizeDO.setId(id);
+        prizeDO.setName(name);
+        prizeDO.setDescription(name + "描述");
+        prizeDO.setPrice(new BigDecimal("100.00"));
+        prizeDO.setImageUrl("/uploads/prize/test.png");
+        return prizeDO;
     }
 }

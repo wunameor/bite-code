@@ -128,10 +128,8 @@
             <th>奖品价值</th>
         </tr>
         </thead>
-        <tbody>
         <tbody id="prizeList">
             <!-- 奖品列表将动态插入这里 -->
-        </tbody>
         </tbody>
       </table>
     </div>
@@ -148,70 +146,77 @@
 <script src="./js/jquery.min.js"></script>
 <script src="./js/auth.js"></script>
 <script>
-    var userToken = localStorage.getItem("user_token");
-
     var currentPage = 1;
     var pageSize = 10;
-    var totalPages;
+    var totalPages = 1;
 
-    // 发送AJAX请求的函数
+    // 转义文本，避免奖品名/描述里的 HTML 被当成标签执行
+    function escapeHtml(value) {
+      return $('<div>').text(value == null ? '' : value).html();
+    }
+
+    // 转义属性值，避免引号截断 src/alt
+    function escapeAttr(value) {
+      return escapeHtml(value).replace(/"/g, '&quot;');
+    }
+
+    // 查询指定页的奖品列表，并刷新表格和分页控件
     function fetchPrizes(page) {
-      console.log(page);
       // 如果页码小于1，则重置为1
       if (page < 1) {
         page = 1;
       }
 
-      // 更新当前页码
       currentPage = page;
 
-      // 构建要发送的数据对象
-      var dataToSend = {
-        currentPage: currentPage,
-        pageSize: pageSize
-      };
-
-      // 发送AJAX请求
       $.ajax({
-          url: '',
-          type: '',
-          data: dataToSend, // 将分页参数作为请求数据发送
-          headers: {
-              // jwt
+          url: '/prize/list',
+          type: 'get',
+          // 动态列表不缓存，避免创建奖品后仍看到旧数据
+          cache: false,
+          data: {
+            currentPage: currentPage,
+            pageSize: pageSize
           },
-          dataType: 'json', // 期望从服务器接收的数据类型是JSON
+          dataType: 'json',
           success: function(result) {
-            if (result.code != 200) {
-                alert("查询奖品列表失败！" + result.msg);
+            if (result.code !== 200) {
+                alert("查询奖品列表失败！" + result.message);
+                return;
+            }
+
+            var data = result.data || {};
+            var prizes = data.records || [];
+            var prizeList = $('#prizeList').empty();
+
+            if (prizes.length === 0) {
+                prizeList.append('<tr><td colspan="5">暂无数据</td></tr>');
             } else {
-                var prizes = result.data.records;
-                var prizesHtml = '';
-                // 清空现有的表格内容
-                var prizeList = $('#prizeList');
-                prizeList.empty();
                 prizes.forEach(function(prize) {
                     var imageUrl = prize.imageUrl ? prize.imageUrl : '/pic/defaultPrizeImg.png';
+                    var priceText = prize.price == null ? '' : Number(prize.price).toFixed(2);
                     prizeList.append('<tr> ' +
-                            '<td>' + prize.prizeId + '</td>' +
-                            '<td><img src="' + imageUrl + '" alt="' + prize.prizeName + '" class="prize-image"></td>' +
-                            '<td>' + prize.prizeName + '</td>' +
-                            '<td>' + prize.description + '</td>' +
-                            '<td>' + prize.price + '元</td>' +
+                            '<td>' + escapeHtml(prize.prizeId) + '</td>' +
+                            '<td><img src="' + escapeAttr(imageUrl) + '" alt="' + escapeAttr(prize.prizeName) + '" class="prize-image"></td>' +
+                            '<td>' + escapeHtml(prize.prizeName) + '</td>' +
+                            '<td>' + escapeHtml(prize.description) + '</td>' +
+                            '<td>' + priceText + '元</td>' +
                             '</tr>');
                 });
-                // 更新分页控件的总页数
-                totalPages = Math.ceil(result.data.total / pageSize);
-                // 更新输入框的值
-                $('#pageInput').val(currentPage);
-              } // else end
+            }
+
+            totalPages = Math.max(1, Math.ceil((data.total || 0) / pageSize));
+            $('#pageInput').val(currentPage);
           },
-          error:function(err){
-              console.log(err);
-              if(err!=null && err.status==401){
+          error:function(xhr){
+              console.log(xhr);
+              if(xhr.status === 401){
                   alert("用户未登录, 即将跳转到登录页!");
-                  // 跳转登录页
-                  window.location.href = "/blogin.html";
-                  window.parent.location.href = "/blogin.html";//让父页面一起跳转
+                  window.parent.location.href = "/blogin.html";
+              } else if (xhr.status === 403) {
+                  alert("无权限查看奖品列表");
+              } else {
+                  alert("查询奖品列表失败：" + xhr.status);
               }
           }
       });

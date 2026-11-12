@@ -188,7 +188,16 @@
             success: function (result) {
                 if (result.code === 200) {
                     alert('奖品创建成功！');
-                    window.location.href = '/prizes-list.html';
+                    // 在后台 iframe 中：通知父页面切换到奖品列表，由父页面带上时间戳重新加载 iframe，避免缓存
+                    // 直接打开创建页时没有父页面，退化为普通跳转
+                    if (window.parent !== window) {
+                        window.parent.postMessage({
+                            from: 'prizes-list.html',
+                            id: '#prizesList'
+                        }, '*');
+                    } else {
+                        window.location.href = '/prizes-list.html?param=' + new Date().getTime();
+                    }
                 } else {
                     alert('创建奖品失败：' + result.message);
                 }
