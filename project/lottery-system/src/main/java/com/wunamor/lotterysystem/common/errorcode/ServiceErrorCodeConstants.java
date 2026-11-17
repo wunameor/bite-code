@@ -40,6 +40,17 @@ public interface ServiceErrorCodeConstants {
     ErrorCode FILE_SCENE_NOT_ALLOWED = new ErrorCode(1025, "不支持的文件业务场景");
 
     // ============ 活动模块错误码 ===========
+    ErrorCode ACTIVITY_INFO_IS_EMPTY = new ErrorCode(1033, "活动信息为空");
+    ErrorCode ACTIVITY_NAME_IS_EMPTY = new ErrorCode(1034, "活动名称不能为空");
+    ErrorCode ACTIVITY_NAME_TOO_LONG = new ErrorCode(1035, "活动名称不能超过 255 个字符");
+    ErrorCode ACTIVITY_DESCRIPTION_IS_EMPTY = new ErrorCode(1036, "活动描述不能为空");
+    ErrorCode ACTIVITY_DESCRIPTION_TOO_LONG = new ErrorCode(1037, "活动描述不能超过 255 个字符");
+    ErrorCode ACTIVITY_PRIZE_LIST_IS_EMPTY = new ErrorCode(1038, "请至少选择一个奖品");
+    ErrorCode ACTIVITY_PRIZE_INVALID = new ErrorCode(1039, "奖品信息不合法或奖品不存在");
+    ErrorCode ACTIVITY_USER_LIST_IS_EMPTY = new ErrorCode(1040, "请至少选择一个人员");
+    ErrorCode ACTIVITY_USER_INVALID = new ErrorCode(1041, "人员信息不合法或人员不存在");
+    ErrorCode ACTIVITY_USER_NOT_ENOUGH = new ErrorCode(1042, "选中人员数量不能少于奖品总数量");
+    ErrorCode ACTIVITY_CREATE_ERROR = new ErrorCode(1043, "活动创建失败，请稍后再试");
 
 
     // ============ 奖品模块错误码 ===========

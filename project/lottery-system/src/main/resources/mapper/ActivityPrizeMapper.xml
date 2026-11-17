@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.wunamor.lotterysystem.mapper.ActivityPrizeMapper">
+
+    <!-- 批量写入活动奖品关联，初始状态由 Service 统一设置 -->
+    <insert id="insertBatch">
+        INSERT INTO activity_prize
+            (activity_id, prize_id, prize_amount, prize_tiers, status)
+        VALUES
+        <foreach collection="list" item="item" separator=",">
+            (#{item.activityId}, #{item.prizeId}, #{item.prizeAmount},
+             #{item.prizeTiers}, #{item.status})
+        </foreach>
+    </insert>
+
+</mapper>

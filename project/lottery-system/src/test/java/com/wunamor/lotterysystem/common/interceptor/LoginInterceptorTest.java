@@ -162,6 +162,44 @@ class LoginInterceptorTest {
         assertTrue(interceptor.preHandle(request, new MockHttpServletResponse(), new Object()));
     }
 
+    @Test
+    void activityCreateWithNormalUserTokenReturns403() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/activity/create");
+        request.addHeader("Authorization", "Bearer " + tokenWithIdentity(1));
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        assertFalse(interceptor.preHandle(request, response, new Object()));
+        assertEquals(403, response.getStatus());
+        assertTrue(response.getContentAsString().contains("\"code\":403"));
+    }
+
+    @Test
+    void activityCreateWithAdminTokenPasses() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/activity/create");
+        request.addHeader("Authorization", "Bearer " + tokenWithIdentity(0));
+
+        assertTrue(interceptor.preHandle(request, new MockHttpServletResponse(), new Object()));
+    }
+
+    @Test
+    void activityListWithNormalUserTokenReturns403() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/activity/list");
+        request.addHeader("Authorization", "Bearer " + tokenWithIdentity(1));
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        assertFalse(interceptor.preHandle(request, response, new Object()));
+        assertEquals(403, response.getStatus());
+        assertTrue(response.getContentAsString().contains("\"code\":403"));
+    }
+
+    @Test
+    void activityListWithAdminTokenPasses() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/activity/list");
+        request.addHeader("Authorization", "Bearer " + tokenWithIdentity(0));
+
+        assertTrue(interceptor.preHandle(request, new MockHttpServletResponse(), new Object()));
+    }
+
     private String validToken() {
         return JWTUtil.genJwt(Map.<String, Object>of("userId", 1));
     }

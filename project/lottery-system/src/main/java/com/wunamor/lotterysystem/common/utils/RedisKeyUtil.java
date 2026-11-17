@@ -35,4 +35,11 @@ public final class RedisKeyUtil {
     public static String emailCodeLimit(EmailSceneEnum scene, String email) {
         return join("email", "code", "limit", scene.getCode(), email);
     }
+
+    /**
+     * 活动详情快照：lottery:activity:detail:24
+     */
+    public static String activityDetail(Long activityId) {
+        return join("activity", "detail", String.valueOf(activityId));
+    }
 }

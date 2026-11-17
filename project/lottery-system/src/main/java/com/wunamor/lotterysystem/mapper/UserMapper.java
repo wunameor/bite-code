@@ -46,4 +46,11 @@ public interface UserMapper extends BaseMapper<UserDO> {
     @Select("select id, user_name, identity from user order by id desc")
     List<UserDO> listUsers();
 
+    /**
+     * 按 id 批量查询人员，只查 id 和用户名，供活动创建使用。
+     */
+    @Select("<script>select id, user_name from user where id in " +
+            "<foreach collection='ids' item='id' open='(' separator=',' close=')'>#{id}</foreach></script>")
+    List<UserDO> listUsersByIds(@Param("ids") List<Long> ids);
+
 }

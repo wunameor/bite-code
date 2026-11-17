@@ -27,7 +27,8 @@ public class LoginInterceptor implements HandlerInterceptor {
     /** 仅管理员可访问的接口 */
     private static final Set<String> ADMIN_ONLY_PATHS = Set.of(
             "/user/register", "/user/list", "/file/upload",
-            "/prize/create", "/prize/list");
+            "/prize/create", "/prize/list",
+            "/activity/create", "/activity/list");
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
@@ -55,7 +56,7 @@ public class LoginInterceptor implements HandlerInterceptor {
             return false;
         }
 
-        // 注册、人员列表、文件上传、创建奖品、奖品列表只允许管理员访问
+        // 注册、人员列表、文件上传、创建奖品、奖品列表、活动接口只允许管理员访问
         if (isAdminOnlyPath(request.getRequestURI()) && !isAdmin(claims)) {
             log.warn("非管理员尝试访问 {}，userId: {}", request.getRequestURI(), claims.get("userId"));
             writeForbidden(response);

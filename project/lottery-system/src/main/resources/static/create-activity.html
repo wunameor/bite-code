@@ -41,6 +41,10 @@
             border: 1px solid #888;
             width: 610px;
         }
+        .users-modal-content {
+            width: 860px;
+            max-width: calc(100vw - 40px);
+        }
         .modal-content h2{
             display: flex;
             justify-content: space-between;
@@ -70,8 +74,7 @@
             text-decoration: none;
             cursor: pointer;
         }
-        .prize-item,
-        .user-item {
+        .prize-item {
             display: flex;
             align-items: center;
             margin-bottom: 10px;
@@ -84,13 +87,11 @@
             font-weight: bold;
             margin-right: 90px; /* 右侧外边距 */
         }
-        .prize-item input[type="checkbox"],
-        .user-item input[type="checkbox"] {
+        .prize-item input[type="checkbox"] {
             margin-right: 99px;
         }
 
-        .prize-item label,
-        .user-item label {
+        .prize-item label {
             margin-right: 11px;
             margin-bottom: 0;
             width: 200px;
@@ -104,6 +105,114 @@
             height: 36px;
             line-height: 36px;
             margin-right: 56px;
+        }
+        .user-toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+        }
+        .user-filter {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .user-filter label {
+            margin-bottom: 0;
+            white-space: nowrap;
+        }
+        #userTypeFilter {
+            width: 140px;
+            height: 36px;
+        }
+        .selected-user-count {
+            color: #666;
+            font-size: 14px;
+        }
+        .user-panel-wrapper {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+        .user-panel {
+            display: flex;
+            flex-direction: column;
+            height: 360px;
+            padding: 12px;
+            border: 1px solid #dedede;
+            border-radius: 4px;
+            background-color: #fafafa;
+            min-width: 0;
+        }
+        .user-panel-title {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            color: #333;
+            font-size: 14px;
+            font-weight: 600;
+        }
+        .user-list {
+            flex: 1;
+            overflow-y: auto;
+            padding-right: 4px;
+        }
+        .user-entry {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            margin-bottom: 6px;
+            padding: 8px;
+            border: 1px solid #eee;
+            border-radius: 4px;
+            background-color: #fff;
+        }
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex: 1;
+            min-width: 0;
+        }
+        .user-name {
+            flex: 1;
+            overflow: hidden;
+            color: #333;
+            font-size: 14px;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .user-identity {
+            padding: 2px 6px;
+            border-radius: 10px;
+            background-color: #eef2f7;
+            color: #666;
+            font-size: 12px;
+            white-space: nowrap;
+        }
+        .user-action-btn {
+            min-width: 56px;
+            flex-shrink: 0;
+        }
+        .user-empty-tip {
+            padding: 30px 10px;
+            color: #999;
+            font-size: 14px;
+            text-align: center;
+        }
+        @media (max-width: 768px) {
+            .users-modal-content {
+                width: calc(100vw - 20px);
+                margin: 20px auto;
+            }
+            .user-panel-wrapper {
+                grid-template-columns: 1fr;
+            }
+            .user-panel {
+                height: 240px;
+            }
         }
         .h-title{
             font-weight: 600;
@@ -173,13 +282,36 @@
 </div>
 <!-- 人员选择模态框 -->
 <div id="usersModal" class="modal">
-    <div class="modal-content">
-        <h2>人员列表<span class="close"  onclick="hideUsersModal()">&times;</span></h2>
-        <div id="usersContainer">
-            <!-- 奖品列表将动态插入这里 -->
+    <div class="modal-content users-modal-content">
+        <h2>人员列表<span class="close" onclick="cancelUsersModal()">&times;</span></h2>
+        <div class="user-toolbar">
+            <div class="user-filter">
+                <label for="userTypeFilter">用户类型</label>
+                <select id="userTypeFilter" class="form-control"
+                        title="切换用户类型只过滤未选择人员，已选人员会保留">
+                    <option value="">全部</option>
+                    <option value="0">管理员</option>
+                    <option value="1">普通用户</option>
+                </select>
+            </div>
+            <span id="selectedUserCount" class="selected-user-count">已选 0 人</span>
+        </div>
+        <div class="user-panel-wrapper">
+            <div class="user-panel">
+                <div class="user-panel-title">
+                    <span>未选择人员 <span id="unselectedUserCount">(0)</span></span>
+                </div>
+                <div id="unselectedUsersContainer" class="user-list"></div>
+            </div>
+            <div class="user-panel">
+                <div class="user-panel-title">
+                    <span>已选择人员 <span id="selectedUserCountPanel">(0)</span></span>
+                </div>
+                <div id="selectedUsersContainer" class="user-list"></div>
+            </div>
         </div>
         <div class="form-btn-box">
-            <button type="button" class="btn btn-secondary pre-btn" onclick="hideUsersModal()">取消</button>
+            <button type="button" class="btn btn-secondary pre-btn" onclick="cancelUsersModal()">取消</button>
             <button type="button" class="btn btn-primary" onclick="submitUsers()">确定</button>
         </div>
     </div>
@@ -191,9 +323,15 @@
 <script  src="./js/jquery.validate.min.js"></script>
 <script src="./js/toastr.min.js"></script>
 <script>
-    var userToken = localStorage.getItem("user_token");
+    // 转义文本，避免奖品名/用户名里的 HTML 被当成标签执行
+    function escapeHtml(value) {
+        return $('<div>').text(value == null ? '' : value).html();
+    }
+
     // 初始时奖品列表为空
     var selectedPrizes = [];
+    // 防止重复点击提交，避免创建出两条一样的活动
+    var isSubmittingActivity = false;
     // 显示奖品选择模态框
     function showPrizesModal() {
         $('#prizesModal').css('display', 'block');
@@ -205,22 +343,24 @@
     // 获取奖品列表的函数
     function fetchPrizes() {
         $.ajax({
-            url: '',
-            type: '',
+            url: '/prize/list',
+            type: 'get',
+            cache: false,
             dataType: 'json',
-            data: { currentPage: 1, pageSize: 100},
-            headers: {
-                // jwt
-            },
+            data: { currentPage: 1, pageSize: 100 },
             success: function(result) {
-                var prizes = result.data.records;
+                if (result.code !== 200) {
+                    alert("查询奖品列表失败！" + result.message);
+                    return;
+                }
+                var prizes = (result.data && result.data.records) || [];
                 var prizesContainer = $('#prizesContainer');
                 prizesContainer.empty(); // 清空当前奖品列表
                 prizes.forEach(function(prize) {
                     prizesContainer.append(
                         $('<div class="prize-item">').append(`
                             <input type="checkbox" id="prize-${prize.prizeId}" name="prize-${prize.prizeId}" value="${prize.prizeId}">
-                            <label for="prize-${prize.prizeId}">${prize.prizeName}</label>
+                            <label for="prize-${prize.prizeId}">${escapeHtml(prize.prizeName)}</label>
                             <input class="form-control" type="number" name="quantity-${prize.prizeId}" min="1" value="1">
                             <select class="form-control" name="level-${prize.prizeId}">
                                 <option value="FIRST_PRIZE" selected>一等奖</option>
@@ -231,13 +371,15 @@
                     );
                 });
             },
-            error: function(err){
-                console.log(err);
-                if(err!=null && err.status==401){
+            error: function(xhr){
+                console.log(xhr);
+                if(xhr.status === 401){
                     alert("用户未登录, 即将跳转到登录页!");
-                    // 跳转登录页
-                    window.location.href = "/blogin.html";
-                    window.parent.location.href = "/blogin.html";//让父页面一起跳转
+                    window.parent.location.href = "/blogin.html";
+                } else if (xhr.status === 403) {
+                    alert("无权限查看奖品列表");
+                } else {
+                    alert("查询奖品列表失败：" + xhr.status);
                 }
             }
         });
@@ -245,20 +387,29 @@
     // 提交奖品数据的函数
     function submitPrizes() {
         selectedPrizes = [];
-        // 将选中的奖品信息存储在selectedPrizes
+        var invalidAmount = false;
+        // 将选中的奖品信息存储在 selectedPrizes
         $('.prize-item input[type="checkbox"]:checked').each(function() {
             var prizeId = +$(this).val();
             var prizeAmount = +$('input[name="quantity-' + prizeId + '"]').val();
-            var prizeTiers = $('select[name="level-' + prizeId + '"]').val();
+            var prizeTier = $('select[name="level-' + prizeId + '"]').val();
+            if (!prizeAmount || prizeAmount < 1) {
+                invalidAmount = true;
+                return false;
+            }
             selectedPrizes.push({
                 prizeId: prizeId,
                 prizeAmount: prizeAmount,
-                prizeTiers: prizeTiers
+                prizeTier: prizeTier
             });
         });
+        if (invalidAmount) {
+            alert('奖品数量必须大于 0');
+            return;
+        }
         // 关闭模态框
         hidePrizesModal();
-        //  修改按钮
+        // 修改按钮
         var nextButton = document.getElementById('buttonPrizes');
         if (selectedPrizes.length > 0) {
             nextButton.textContent = '圈选奖品(已选)';
@@ -267,69 +418,174 @@
         }
     }
 
-    // 初始时人员列表为空
+    // 已确认的人员选择，提交活动时使用
     var selectedUsers = [];
+    // /user/list 返回的全部人员
+    var allUsers = [];
+    // 弹窗内当前选择的人员 id
+    var selectedUserIds = new Set();
+    // 打开弹窗时的选择快照，取消时恢复
+    var selectedUserIdsBeforeOpen = new Set();
+
     // 显示人员选择模态框
     function showUsersModal() {
+        // 1. 记录打开前的选择，取消时恢复
+        selectedUserIdsBeforeOpen = new Set(selectedUserIds);
+        // 2. 显示弹窗并渲染左右两栏
         $('#usersModal').css('display', 'block');
+        renderUserPanels();
     }
+
     // 隐藏人员选择模态框
     function hideUsersModal() {
         $('#usersModal').css('display', 'none');
     }
+
+    // 取消人员选择，恢复打开前的状态
+    function cancelUsersModal() {
+        selectedUserIds = new Set(selectedUserIdsBeforeOpen);
+        hideUsersModal();
+    }
+
     // 获取人员列表的函数
     function fetchUsers() {
         $.ajax({
-            url: '',
-            type: '',
+            url: '/user/list',
+            type: 'get',
+            cache: false,
             dataType: 'json',
-            data: { identity: '' },
-            headers: {
-                // jwt
-            },
             success: function(result) {
-                var users = result.data;
-                var usersContainer = $('#usersContainer');
-                usersContainer.empty(); // 清空当前人员列表
-                users.forEach(function(user) {
-                    console.info(user);
-                    usersContainer.append(
-                        $('<div class="user-item">').append(`
-                            <input type="checkbox" id="user-${user.userId}" name="user-${user.userId}" value="${user.userId}">
-                            <label for="user-${user.userId}">${user.userName}</label>
-                        `)
-                    );
-                });
+                if (result.code !== 200) {
+                    alert("查询人员列表失败！" + result.message);
+                    return;
+                }
+                // 1. 保存全部人员，供筛选和左右两栏渲染
+                allUsers = result.data || [];
+                // 2. 已确认的选择同步到弹窗状态，避免刷新列表后丢失
+                selectedUserIds = new Set(selectedUsers.map(function(user) {
+                    return user.userId;
+                }));
+                // 3. 渲染人员选择区
+                renderUserPanels();
             },
-            error:function(err){
-                console.log(err);
-                if(err!=null && err.status==401){
+            error: function(xhr) {
+                console.log(xhr);
+                if (xhr.status === 401) {
                     alert("用户未登录, 即将跳转到登录页!");
-                    // 跳转登录页
-                    window.location.href = "/blogin.html";
-                    window.parent.location.href = "/blogin.html";//让父页面一起跳转
+                    window.parent.location.href = "/blogin.html";
+                } else if (xhr.status === 403) {
+                    alert("无权限查看人员列表");
+                } else {
+                    alert("查询人员列表失败：" + xhr.status);
                 }
             }
         });
     }
+
+    // 按用户类型和选择状态渲染左右两栏
+    function renderUserPanels() {
+        // 1. 左侧只展示未选择且匹配当前类型的人员
+        var userType = $('#userTypeFilter').val();
+        var unselectedUsers = allUsers.filter(function(user) {
+            return !selectedUserIds.has(user.userId)
+                && (userType === '' || String(user.identity) === userType);
+        });
+        // 2. 右侧始终展示全部已选人员，不受类型筛选影响
+        var selectedUsersInPanel = allUsers.filter(function(user) {
+            return selectedUserIds.has(user.userId);
+        });
+        // 3. 分别渲染两栏并更新数量
+        renderUnselectedUsers(unselectedUsers);
+        renderSelectedUsers(selectedUsersInPanel);
+        updateUserCounts(unselectedUsers.length, selectedUsersInPanel.length);
+    }
+
+    // 渲染未选择人员
+    function renderUnselectedUsers(users) {
+        var container = $('#unselectedUsersContainer');
+        container.empty();
+        if (users.length === 0) {
+            container.append('<div class="user-empty-tip">当前筛选下没有更多人员</div>');
+            return;
+        }
+        users.forEach(function(user) {
+            container.append(
+                $('<div class="user-entry">').append(
+                    '<div class="user-info">'
+                    + '<span class="user-name">' + escapeHtml(user.userName) + '</span>'
+                    + '<span class="user-identity">' + escapeHtml(user.identityDesc) + '</span>'
+                    + '</div>'
+                    + '<button type="button" class="btn btn-sm btn-primary user-action-btn select-user-btn"'
+                    + ' data-user-id="' + user.userId + '">选择</button>'
+                )
+            );
+        });
+    }
+
+    // 渲染已选择人员
+    function renderSelectedUsers(users) {
+        var container = $('#selectedUsersContainer');
+        container.empty();
+        if (users.length === 0) {
+            container.append('<div class="user-empty-tip">暂未选择人员</div>');
+            return;
+        }
+        users.forEach(function(user) {
+            container.append(
+                $('<div class="user-entry">').append(
+                    '<div class="user-info">'
+                    + '<span class="user-name">' + escapeHtml(user.userName) + '</span>'
+                    + '<span class="user-identity">' + escapeHtml(user.identityDesc) + '</span>'
+                    + '</div>'
+                    + '<button type="button" class="btn btn-sm btn-secondary user-action-btn remove-user-btn"'
+                    + ' data-user-id="' + user.userId + '">移除</button>'
+                )
+            );
+        });
+    }
+
+    // 更新两栏标题和顶部已选人数
+    function updateUserCounts(unselectedCount, selectedCount) {
+        $('#unselectedUserCount').text('(' + unselectedCount + ')');
+        $('#selectedUserCountPanel').text('(' + selectedCount + ')');
+        $('#selectedUserCount').text('已选 ' + selectedCount + ' 人');
+    }
+
+    // 选择人员
+    function selectUser(userId) {
+        if (!userId) {
+            return;
+        }
+        selectedUserIds.add(userId);
+        renderUserPanels();
+    }
+
+    // 移除已选人员
+    function removeUser(userId) {
+        selectedUserIds.delete(userId);
+        renderUserPanels();
+    }
+
     // 提交用户数据的函数
     function submitUsers() {
-        selectedUsers = [];
-        // 将选中的奖品信息存储在selectedUsers
-        $('.user-item input[type="checkbox"]:checked').each(function() {
-            var userId = +$(this).val();
-            var userName = $(this).next('label').text();
-            selectedUsers.push({
-                userId: userId,
-                userName: userName
+        // 1. 按人员列表顺序生成已确认数据，提交时只带 userId
+        selectedUsers = allUsers
+            .filter(function(user) {
+                return selectedUserIds.has(user.userId);
+            })
+            .map(function(user) {
+                return { userId: user.userId };
             });
-        });
-        // 关闭模态框
+        // 2. 关闭弹窗并更新按钮文案
         hideUsersModal();
-        //  修改按钮
+        updateUsersButton();
+    }
+
+    // 更新圈选人员按钮文案
+    function updateUsersButton() {
         var nextButton = document.getElementById('buttonUsers');
         if (selectedUsers.length > 0) {
-            nextButton.textContent = '圈选人员(已选)';
+            nextButton.textContent = '圈选人员(已选 ' + selectedUsers.length + ' 人)';
         } else {
             nextButton.textContent = '圈选人员';
         }
@@ -363,6 +619,14 @@
                     alert('请至少选择一个人员, 人员数量应大于等于奖品总量')
                     return false
                 }
+                // 人数必须覆盖奖品总数量
+                var totalPrizeAmount = selectedPrizes.reduce(function(sum, prize) {
+                    return sum + prize.prizeAmount;
+                }, 0);
+                if (selectedUsers.length < totalPrizeAmount) {
+                    alert('人员数量应大于等于奖品总量');
+                    return false;
+                }
                 // 获取提交表单信息
                 var data = {
                     activityName:'',
@@ -380,44 +644,58 @@
     })
     // 提交活动信息接口
     function submitActivity(data){
+        if (isSubmittingActivity) {
+            return;
+        }
+        isSubmittingActivity = true;
+        $('#createActivity').prop('disabled', true);
         $.ajax({
-            url: '',
-            type: '',
+            url: '/activity/create',
+            type: 'post',
             contentType: 'application/json',
             data: JSON.stringify(data),
-            headers: {
-                // jwt
-            },
             success: function(result) {
-                if (result.code != 200) {
-                    alert("创建失败！" + result.msg);
+                if (result.code !== 200) {
+                    alert("创建失败！" + result.message);
+                    return;
+                }
+                alert("创建成功!");
+                // 向父页面传值，由父页面切换 iframe 并带上时间戳避免缓存
+                window.parent.postMessage({
+                    from:'activities-list.html',
+                    id:'#activitiesList'
+                },'*');
+            },
+            error: function(xhr) {
+                console.log(xhr);
+                if (xhr.status === 401) {
+                    alert("用户未登录，即将跳转到登录页!");
+                    window.parent.location.href = "/blogin.html";
+                } else if (xhr.status === 403) {
+                    alert("无权限创建活动");
                 } else {
-                    alert("创建成功!");
-                    // 向父页面传值  https://developer.mozilla.org/zh-CN/docs/Web/API/Window/postMessage
-                    window.parent.postMessage({
-                        from:'activities-list.html',
-                        id:'#activitiesList'
-                    },'*');
-
+                    alert("创建失败：" + xhr.status);
                 }
             },
+            complete: function() {
+                isSubmittingActivity = false;
+                $('#createActivity').prop('disabled', false);
+            }
         });
     }
-    // 获取奖品/人员列表并填充模态框
+    // 初始化页面数据和人员选择事件
     $(document).ready(function() {
+        // 1. 加载奖品和人员列表
         fetchPrizes();
         fetchUsers();
-    });
-    // 显示奖品选择模态框
-    $(document).ready(function() {
-        $('#activityForm').on('click', 'button圈选奖品', function() {
-            showPrizesModal();
+        // 2. 切换用户类型时只刷新未选择人员栏
+        $('#userTypeFilter').on('change', renderUserPanels);
+        // 3. 左右两栏使用事件委托处理选择/移除
+        $('#unselectedUsersContainer').on('click', '.select-user-btn', function() {
+            selectUser(+$(this).data('userId'));
         });
-    });
-    // 显示人员选择模态框
-    $(document).ready(function() {
-        $('#activityForm').on('click', 'button圈选人员', function() {
-            showUsersModal();
+        $('#selectedUsersContainer').on('click', '.remove-user-btn', function() {
+            removeUser(+$(this).data('userId'));
         });
     });
 </script>

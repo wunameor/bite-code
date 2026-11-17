@@ -119,10 +119,14 @@
 <script>
     var currentPage = 1;
     var pageSize = 10;
-    var totalPages;
-    var userToken = localStorage.getItem("user_token");
+    var totalPages = 1;
 
-    // 发送AJAX请求的函数
+    // 转义文本，避免活动名/描述里的 HTML 被当成标签执行
+    function escapeHtml(value) {
+      return $('<div>').text(value == null ? '' : value).html();
+    }
+
+    // 查询指定页的活动列表
     function fetchActivities(page) {
       // 如果页码小于1，则重置为1
       if (page < 1) {
@@ -130,63 +134,61 @@
       }
       // 更新当前页码
       currentPage = page;
-      // 构建要发送的数据对象
-      var dataToSend = {
-        currentPage: currentPage,
-        pageSize: pageSize
-      };
-      // 发送AJAX请求
+
       $.ajax({
-          url: '',
-          type: '',
-          data: dataToSend, // 将分页参数作为请求数据发送
+          url: '/activity/list',
+          type: 'get',
+          // 动态列表不缓存，避免创建活动后仍看到旧数据
+          cache: false,
+          data: {
+            currentPage: currentPage,
+            pageSize: pageSize
+          },
           dataType: 'json',
-          headers: {
-            // jwt
-          },
           success: function(result) {
-            if (result.code != 200) {
-                alert("查询活动列表失败！" + result.msg);
-            } else {
-                var activities = result.data.records; // 假设返回的数据中活动列表字段为 'records'
-                var activitiesHtml = '';
-                var listContainer = document.getElementById('activities');
-                // 在添加新内容前，先清空listContainer
-                listContainer.innerHTML = '';
-                activities.forEach(function(activity) {
-                  var url = 'draw.html?activityName='+ encodeURIComponent(activity.activityName)
-                          +'&activityId=' + encodeURIComponent(activity.activityId)
-                          +'&valid=' + encodeURIComponent(activity.valid);
-                  var linkTextActive = `<a href="${url}" target="_blank">活动进行中，去抽奖</a>`;
-                  var linkTextInactive = `<a href="${url}" target="_blank">活动已完成，查看中奖名单</a>`;
-                  var validClass = activity.valid ? 'active' : 'inactive';
-                  var link = activity.valid ? linkTextActive : linkTextInactive;
-                  activitiesHtml += `
-                      <div class="activity-item">
-                        <div class="activity-info">
-                          <h4>${activity.activityName}</h4>
-                          <p>${activity.description}</p>
-                        </div>
-                        <div class="${validClass}">
-                          <p>${link}</p>
-                        </div>
-                      </div>
-                    `;
-                });
-                $('#activities').html(activitiesHtml);
-                // 更新分页控件的总页数
-                totalPages = Math.ceil(result.data.total / pageSize);
-                // 更新输入框的值
-                $('#pageInput').val(currentPage);
-              } // else end
+            if (result.code !== 200) {
+                alert("查询活动列表失败！" + result.message);
+                return;
+            }
+
+            var activities = (result.data && result.data.records) || [];
+            var activitiesHtml = '';
+            activities.forEach(function(activity) {
+              var url = 'draw.html?activityName=' + encodeURIComponent(activity.activityName)
+                      + '&activityId=' + encodeURIComponent(activity.activityId)
+                      + '&valid=' + encodeURIComponent(activity.valid);
+              var linkTextActive = `<a href="${url}" target="_blank">活动进行中，去抽奖</a>`;
+              var linkTextInactive = `<a href="${url}" target="_blank">活动已完成，查看中奖名单</a>`;
+              var validClass = activity.valid ? 'active' : 'inactive';
+              var link = activity.valid ? linkTextActive : linkTextInactive;
+              activitiesHtml += `
+                  <div class="activity-item">
+                    <div class="activity-info">
+                      <h4>${escapeHtml(activity.activityName)}</h4>
+                      <p>${escapeHtml(activity.description)}</p>
+                    </div>
+                    <div class="${validClass}">
+                      <p>${link}</p>
+                    </div>
+                  </div>
+                `;
+            });
+            $('#activities').html(activitiesHtml);
+
+            // 更新分页控件的总页数
+            totalPages = Math.max(1, Math.ceil((result.data.total || 0) / pageSize));
+            // 更新输入框的值
+            $('#pageInput').val(currentPage);
           },
-        error:function(err){
-          console.log(err);
-          if(err!=null && err.status==401){
+        error:function(xhr){
+          console.log(xhr);
+          if(xhr.status === 401){
             alert("用户未登录, 即将跳转到登录页!");
-            // 跳转登录页
-            window.location.href = "/blogin.html";
-            window.parent.location.href = "/blogin.html";//让父页面一起跳转
+            window.parent.location.href = "/blogin.html";
+          } else if (xhr.status === 403) {
+            alert("无权限查看活动列表");
+          } else {
+            alert("查询活动列表失败：" + xhr.status);
           }
         }
       });
