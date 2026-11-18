@@ -51,6 +51,8 @@ public interface ServiceErrorCodeConstants {
     ErrorCode ACTIVITY_USER_INVALID = new ErrorCode(1041, "人员信息不合法或人员不存在");
     ErrorCode ACTIVITY_USER_NOT_ENOUGH = new ErrorCode(1042, "选中人员数量不能少于奖品总数量");
     ErrorCode ACTIVITY_CREATE_ERROR = new ErrorCode(1043, "活动创建失败，请稍后再试");
+    ErrorCode ACTIVITY_ID_IS_EMPTY = new ErrorCode(1044, "活动 id 不能为空");
+    ErrorCode ACTIVITY_NOT_FOUND = new ErrorCode(1045, "活动不存在");
 
 
     // ============ 奖品模块错误码 ===========

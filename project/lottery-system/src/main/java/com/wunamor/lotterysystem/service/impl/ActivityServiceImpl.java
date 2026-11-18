@@ -3,6 +3,7 @@ package com.wunamor.lotterysystem.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.wunamor.lotterysystem.common.enums.ActivityStatusEnum;
+import com.wunamor.lotterysystem.common.enums.PrizeTierEnum;
 import com.wunamor.lotterysystem.common.errorcode.ErrorCode;
 import com.wunamor.lotterysystem.common.errorcode.ServiceErrorCodeConstants;
 import com.wunamor.lotterysystem.common.exception.ServiceException;
@@ -133,6 +134,148 @@ public class ActivityServiceImpl implements ActivityService {
                 .collect(Collectors.toList());
 
         return new PageResult<>(records, result.getTotal(), result.getCurrent(), result.getSize());
+    }
+
+    @Override
+    public ActivityDetailDTO getActivityDetail(Long activityId) {
+        // 1. 校验活动 id，直接调用 Service 时也做一次兜底
+        if (activityId == null || activityId < 1) {
+            throw new ServiceException(ServiceErrorCodeConstants.ACTIVITY_ID_IS_EMPTY);
+        }
+
+        // 2. 优先读取 Redis 快照，命中直接返回
+        ActivityDetailDTO cached = activityCacheService.getActivityDetail(activityId);
+        if (cached != null) {
+            log.debug("活动详情命中缓存，activityId: {}", activityId);
+            return cached;
+        }
+
+        // 3. 缓存未命中时回源 MySQL 组装详情
+        ActivityDetailDTO detail = loadActivityDetail(activityId);
+
+        // 4. 回写 Redis；Redis 不可用时由缓存服务记日志，不影响本次返回
+        activityCacheService.cacheActivityDetail(detail);
+        log.debug("活动详情回源数据库并写入缓存，activityId: {}", activityId);
+        return detail;
+    }
+
+    /**
+     * 从数据库加载活动详情，只返回仍待中奖的人员。
+     */
+    private ActivityDetailDTO loadActivityDetail(Long activityId) {
+        // 1. 查询活动主表，不存在时直接返回业务错误
+        ActivityDO activityDO = activityMapper.selectById(activityId);
+        if (activityDO == null) {
+            throw new ServiceException(ServiceErrorCodeConstants.ACTIVITY_NOT_FOUND);
+        }
+
+        // 2. 按创建顺序查询活动奖品关联
+        List<ActivityPrizeDO> activityPrizes = activityPrizeMapper.selectList(
+                new LambdaQueryWrapper<ActivityPrizeDO>()
+                        .eq(ActivityPrizeDO::getActivityId, activityId)
+                        .orderByAsc(ActivityPrizeDO::getId));
+
+        // 3. 批量查询奖品主表，避免逐条查询
+        Map<Long, PrizeDO> prizeById = queryPrizeMap(activityPrizes);
+
+        // 4. 只查询仍待中奖的人员，已中奖人员不再进入抽奖池
+        List<ActivityUserDO> activityUsers = activityUserMapper.selectList(
+                new LambdaQueryWrapper<ActivityUserDO>()
+                        .eq(ActivityUserDO::getActivityId, activityId)
+                        .eq(ActivityUserDO::getStatus, ActivityUserStatusEnum.PENDING.getCode())
+                        .orderByAsc(ActivityUserDO::getId));
+
+        // 5. 组装活动详情快照
+        ActivityDetailDTO detail = new ActivityDetailDTO();
+        detail.setActivityId(activityDO.getId());
+        detail.setActivityName(activityDO.getActivityName());
+        detail.setDescription(activityDO.getDescription());
+        detail.setValid(ActivityStatusEnum.RUNNING.getCode().equals(activityDO.getStatus()));
+        detail.setPrizes(buildActivityDetailPrizes(activityPrizes, prizeById));
+        detail.setUsers(buildActivityDetailUsers(activityUsers));
+        return detail;
+    }
+
+    /**
+     * 批量查询活动关联的奖品，并建立 prizeId -> PrizeDO 映射。
+     */
+    private Map<Long, PrizeDO> queryPrizeMap(List<ActivityPrizeDO> activityPrizes) {
+        // 1. 没有关联奖品时无需查询奖品表
+        if (activityPrizes.isEmpty()) {
+            return Map.of();
+        }
+
+        // 2. 去重后批量查询奖品
+        List<Long> prizeIds = activityPrizes.stream()
+                .map(ActivityPrizeDO::getPrizeId)
+                .distinct()
+                .toList();
+        List<PrizeDO> prizes = prizeMapper.selectBatchIds(prizeIds);
+
+        // 3. 关联奖品缺失说明数据异常，避免返回残缺详情
+        if (prizes.size() != prizeIds.size()) {
+            throw new ServiceException(ServiceErrorCodeConstants.ACTIVITY_PRIZE_INVALID);
+        }
+        return prizes.stream().collect(Collectors.toMap(PrizeDO::getId, prize -> prize));
+    }
+
+    /**
+     * 按活动奖品关联顺序组装奖品快照。
+     */
+    private List<ActivityDetailPrizeDTO> buildActivityDetailPrizes(
+            List<ActivityPrizeDO> activityPrizes, Map<Long, PrizeDO> prizeById) {
+        // 1. 逐个关联奖品主表数据，保持创建时的奖品顺序
+        List<ActivityDetailPrizeDTO> prizes = new ArrayList<>(activityPrizes.size());
+        for (ActivityPrizeDO activityPrize : activityPrizes) {
+            PrizeDO prizeDO = prizeById.get(activityPrize.getPrizeId());
+            if (prizeDO == null) {
+                throw new ServiceException(ServiceErrorCodeConstants.ACTIVITY_PRIZE_INVALID);
+            }
+            prizes.add(buildActivityDetailPrize(activityPrize, prizeDO));
+        }
+        return prizes;
+    }
+
+    /**
+     * 单个活动奖品快照：状态决定是否还能抽取。
+     */
+    private ActivityDetailPrizeDTO buildActivityDetailPrize(ActivityPrizeDO activityPrize,
+                                                            PrizeDO prizeDO) {
+        // 1. 填充奖品基本信息
+        ActivityDetailPrizeDTO detail = new ActivityDetailPrizeDTO();
+        detail.setPrizeId(prizeDO.getId());
+        detail.setName(prizeDO.getName());
+        detail.setDescription(prizeDO.getDescription());
+        detail.setPrice(prizeDO.getPrice());
+        detail.setImageUrl(prizeDO.getImageUrl());
+        detail.setPrizeAmount(activityPrize.getPrizeAmount());
+
+        // 2. 填充奖品等级，未知等级时回退展示原始 code
+        detail.setPrizeTier(activityPrize.getPrizeTiers());
+        PrizeTierEnum prizeTier = PrizeTierEnum.getByCode(activityPrize.getPrizeTiers());
+        detail.setPrizeTierName(prizeTier == null
+                ? activityPrize.getPrizeTiers() : prizeTier.getDesc());
+
+        // 3. 只有待抽取奖品还能继续抽，中奖名单由中奖记录接口查询
+        detail.setValid(ActivityPrizeStatusEnum.PENDING.getCode()
+                .equals(activityPrize.getStatus()));
+        detail.setList(List.of());
+        return detail;
+    }
+
+    /**
+     * 组装活动人员快照，数据库已按待中奖状态过滤。
+     */
+    private List<ActivityDetailUserDTO> buildActivityDetailUsers(List<ActivityUserDO> activityUsers) {
+        // 1. 逐个转换为页面需要的人员结构
+        List<ActivityDetailUserDTO> users = new ArrayList<>(activityUsers.size());
+        for (ActivityUserDO activityUser : activityUsers) {
+            ActivityDetailUserDTO detail = new ActivityDetailUserDTO();
+            detail.setUserId(activityUser.getUserId());
+            detail.setUserName(activityUser.getUserName());
+            users.add(detail);
+        }
+        return users;
     }
 
     /**

@@ -4,6 +4,7 @@ import com.wunamor.lotterysystem.common.pojo.PageResult;
 import com.wunamor.lotterysystem.service.command.ActivityCreateCommand;
 import com.wunamor.lotterysystem.service.command.ActivityListCommand;
 import com.wunamor.lotterysystem.service.dto.ActivityCreateDTO;
+import com.wunamor.lotterysystem.service.dto.ActivityDetailDTO;
 import com.wunamor.lotterysystem.service.dto.ActivityListDTO;
 
 /**
@@ -26,4 +27,12 @@ public interface ActivityService {
      * @return 分页后的活动列表
      */
     PageResult<ActivityListDTO> listActivities(ActivityListCommand command);
+
+    /**
+     * 查询活动抽奖详情：优先读 Redis，未命中时回源 MySQL 并回写缓存。
+     *
+     * @param activityId 活动 id
+     * @return 活动详情快照
+     */
+    ActivityDetailDTO getActivityDetail(Long activityId);
 }

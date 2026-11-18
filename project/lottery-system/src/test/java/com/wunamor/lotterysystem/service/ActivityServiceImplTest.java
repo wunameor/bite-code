@@ -334,6 +334,90 @@ class ActivityServiceImplTest {
         assertEquals(0, result.getTotalPages());
     }
 
+    @Test
+    void getActivityDetailReturnsCacheWhenHit() {
+        ActivityDetailDTO cached = new ActivityDetailDTO();
+        cached.setActivityId(100L);
+        when(activityCacheService.getActivityDetail(100L)).thenReturn(cached);
+
+        ActivityDetailDTO result = activityService.getActivityDetail(100L);
+
+        assertEquals(100L, result.getActivityId());
+        verify(activityMapper, never()).selectById(any());
+        verify(activityCacheService, never()).cacheActivityDetail(any());
+    }
+
+    @Test
+    void getActivityDetailRebuildsFromDatabaseWhenCacheMiss() {
+        when(activityCacheService.getActivityDetail(100L)).thenReturn(null);
+        when(activityMapper.selectById(100L))
+                .thenReturn(activityDO(100L, "年会抽奖", ActivityStatusEnum.RUNNING.getCode()));
+        when(activityPrizeMapper.selectList(any())).thenReturn(List.of(
+                activityPrizeDO(1L, 10L, 2L, PrizeTierEnum.FIRST_PRIZE,
+                        ActivityPrizeStatusEnum.PENDING),
+                activityPrizeDO(2L, 11L, 1L, PrizeTierEnum.SECOND_PRIZE,
+                        ActivityPrizeStatusEnum.DRAWN)));
+        when(prizeMapper.selectBatchIds(any())).thenReturn(List.of(
+                prizeDO(10L), prizeDO(11L)));
+        when(activityUserMapper.selectList(any())).thenReturn(List.of(
+                activityUserDO(1L, 1L, "张三"),
+                activityUserDO(2L, 2L, "李四")));
+
+        ActivityDetailDTO detail = activityService.getActivityDetail(100L);
+
+        assertTrue(detail.isValid());
+        assertEquals("年会抽奖", detail.getActivityName());
+        assertEquals(2, detail.getPrizes().size());
+        assertTrue(detail.getPrizes().get(0).isValid());
+        assertEquals(PrizeTierEnum.FIRST_PRIZE.getDesc(),
+                detail.getPrizes().get(0).getPrizeTierName());
+        assertFalse(detail.getPrizes().get(1).isValid());
+        assertTrue(detail.getPrizes().get(1).getList().isEmpty());
+        assertEquals(2, detail.getUsers().size());
+        assertEquals("张三", detail.getUsers().get(0).getUserName());
+        verify(activityCacheService).cacheActivityDetail(detail);
+    }
+
+    @Test
+    void getActivityDetailThrowsWhenActivityNotFound() {
+        when(activityCacheService.getActivityDetail(100L)).thenReturn(null);
+        when(activityMapper.selectById(100L)).thenReturn(null);
+
+        ServiceException e = assertThrows(ServiceException.class,
+                () -> activityService.getActivityDetail(100L));
+
+        assertEquals(1045, e.getCode());
+        verify(activityCacheService, never()).cacheActivityDetail(any());
+    }
+
+    @Test
+    void getActivityDetailThrowsWhenPrizeMissing() {
+        when(activityCacheService.getActivityDetail(100L)).thenReturn(null);
+        when(activityMapper.selectById(100L))
+                .thenReturn(activityDO(100L, "年会抽奖", ActivityStatusEnum.RUNNING.getCode()));
+        when(activityPrizeMapper.selectList(any())).thenReturn(List.of(
+                activityPrizeDO(1L, 10L, 2L, PrizeTierEnum.FIRST_PRIZE,
+                        ActivityPrizeStatusEnum.PENDING)));
+        when(prizeMapper.selectBatchIds(any())).thenReturn(List.of());
+
+        ServiceException e = assertThrows(ServiceException.class,
+                () -> activityService.getActivityDetail(100L));
+
+        assertEquals(1039, e.getCode());
+        verify(activityCacheService, never()).cacheActivityDetail(any());
+    }
+
+    @Test
+    void getActivityDetailRejectsInvalidId() {
+        ServiceException nullId = assertThrows(ServiceException.class,
+                () -> activityService.getActivityDetail(null));
+        assertEquals(1044, nullId.getCode());
+
+        ServiceException zeroId = assertThrows(ServiceException.class,
+                () -> activityService.getActivityDetail(0L));
+        assertEquals(1044, zeroId.getCode());
+    }
+
     private ActivityCreateCommand validCommand() {
         ActivityPrizeCommand prize = new ActivityPrizeCommand();
         prize.setPrizeId(10L);
@@ -421,5 +505,28 @@ class ActivityServiceImplTest {
         activityDO.setDescription(name + "描述");
         activityDO.setStatus(status);
         return activityDO;
+    }
+
+    private ActivityPrizeDO activityPrizeDO(Long id, Long prizeId, Long prizeAmount,
+                                            PrizeTierEnum prizeTier,
+                                            ActivityPrizeStatusEnum status) {
+        ActivityPrizeDO activityPrizeDO = new ActivityPrizeDO();
+        activityPrizeDO.setId(id);
+        activityPrizeDO.setActivityId(100L);
+        activityPrizeDO.setPrizeId(prizeId);
+        activityPrizeDO.setPrizeAmount(prizeAmount);
+        activityPrizeDO.setPrizeTiers(prizeTier.getCode());
+        activityPrizeDO.setStatus(status.getCode());
+        return activityPrizeDO;
+    }
+
+    private ActivityUserDO activityUserDO(Long id, Long userId, String userName) {
+        ActivityUserDO activityUserDO = new ActivityUserDO();
+        activityUserDO.setId(id);
+        activityUserDO.setActivityId(100L);
+        activityUserDO.setUserId(userId);
+        activityUserDO.setUserName(userName);
+        activityUserDO.setStatus(ActivityUserStatusEnum.PENDING.getCode());
+        return activityUserDO;
     }
 }

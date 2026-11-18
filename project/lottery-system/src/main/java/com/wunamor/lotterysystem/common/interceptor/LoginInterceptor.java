@@ -28,7 +28,7 @@ public class LoginInterceptor implements HandlerInterceptor {
     private static final Set<String> ADMIN_ONLY_PATHS = Set.of(
             "/user/register", "/user/list", "/file/upload",
             "/prize/create", "/prize/list",
-            "/activity/create", "/activity/list");
+            "/activity/create", "/activity/list", "/activity/detail");
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
