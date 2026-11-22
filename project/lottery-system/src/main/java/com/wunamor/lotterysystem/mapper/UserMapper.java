@@ -35,6 +35,12 @@ public interface UserMapper extends BaseMapper<UserDO> {
     UserDO getUserByEmail(@Param("email") String email);
 
     /**
+     * 按手机号查询用户（资料修改唯一性校验用）。EncryptTypeHandler 会把明文转成密文条件。
+     */
+    @Select("select * from user where phone_number = #{phoneNumber} limit 1")
+    UserDO getUserByPhone(@Param("phoneNumber") Encrypt phoneNumber);
+
+    /**
      * 用户名是否已被占用（注册校验用）
      */
     @Select("select count(1) from user where user_name = #{userName}")

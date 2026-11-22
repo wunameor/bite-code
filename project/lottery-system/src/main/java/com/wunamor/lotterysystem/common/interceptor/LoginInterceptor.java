@@ -57,6 +57,16 @@ public class LoginInterceptor implements HandlerInterceptor {
             return false;
         }
 
+        // 把当前登录用户放进 request，Controller 可用 @RequestAttribute 读取
+        Object userIdClaim = claims.get("userId");
+        if (userIdClaim instanceof Number) {
+            request.setAttribute("userId", ((Number) userIdClaim).longValue());
+        }
+        Object identityClaim = claims.get("identity");
+        if (identityClaim instanceof Number) {
+            request.setAttribute("identity", ((Number) identityClaim).intValue());
+        }
+
         // 注册、人员列表、文件上传、创建奖品、奖品列表、活动接口、抽奖接口只允许管理员访问
         if (isAdminOnlyPath(request.getRequestURI()) && !isAdmin(claims)) {
             log.warn("非管理员尝试访问 {}，userId: {}", request.getRequestURI(), claims.get("userId"));

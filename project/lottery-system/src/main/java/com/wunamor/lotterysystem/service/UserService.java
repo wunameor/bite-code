@@ -2,9 +2,12 @@ package com.wunamor.lotterysystem.service;
 
 import com.wunamor.lotterysystem.service.command.EmailCodeCommand;
 import com.wunamor.lotterysystem.service.command.UserLoginCommand;
+import com.wunamor.lotterysystem.service.command.UserProfileUpdateCommand;
 import com.wunamor.lotterysystem.service.command.UserRegisterCommand;
+import com.wunamor.lotterysystem.service.command.UserResetPasswordCommand;
 import com.wunamor.lotterysystem.service.dto.UserListDTO;
 import com.wunamor.lotterysystem.service.dto.UserLoginDTO;
+import com.wunamor.lotterysystem.service.dto.UserProfileDTO;
 import com.wunamor.lotterysystem.service.dto.UserRegisterDTO;
 
 import java.util.List;
@@ -25,7 +28,29 @@ public interface UserService {
     void sendEmailCode(EmailCodeCommand emailCodeCommand);
 
     /**
+     * 通过重置密码验证码设置新密码。
+     *
+     * @param command 账号、验证码和新密码
+     */
+    void resetPassword(UserResetPasswordCommand command);
+
+    /**
      * 人员列表：按 id 倒序返回 id、姓名、身份
      */
     List<UserListDTO> listUsers();
+
+    /**
+     * 查询当前登录用户资料，敏感字段返回脱敏值。
+     *
+     * @param userId 当前登录用户 id
+     * @return 用户资料
+     */
+    UserProfileDTO getUserProfile(Long userId);
+
+    /**
+     * 修改当前登录用户资料。
+     *
+     * @param command 资料修改命令
+     */
+    void updateUserProfile(UserProfileUpdateCommand command);
 }

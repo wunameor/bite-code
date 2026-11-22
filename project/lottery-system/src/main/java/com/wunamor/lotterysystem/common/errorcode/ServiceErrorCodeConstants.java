@@ -78,4 +78,11 @@ public interface ServiceErrorCodeConstants {
     ErrorCode DRAW_PRIZE_ORDER_INVALID = new ErrorCode(1056, "抽奖顺序错误，请先抽取当前奖品");
     ErrorCode DRAW_REQUEST_PROCESSING = new ErrorCode(1057, "该奖品正在处理中，请勿重复提交");
 
+    // ============ 个人资料错误码 ===========
+    ErrorCode PROFILE_INFO_IS_EMPTY = new ErrorCode(1058, "个人资料为空");
+    ErrorCode PROFILE_OLD_PASSWORD_ERROR = new ErrorCode(1059, "原密码错误");
+    ErrorCode PROFILE_PASSWORD_CONFIRM_ERROR = new ErrorCode(1060, "两次输入的新密码不一致");
+    ErrorCode PROFILE_EMAIL_CODE_REQUIRED = new ErrorCode(1061, "修改邮箱需要填写验证码");
+    ErrorCode PROFILE_USER_NAME_IS_EMPTY = new ErrorCode(1062, "用户名不能为空");
+
 }

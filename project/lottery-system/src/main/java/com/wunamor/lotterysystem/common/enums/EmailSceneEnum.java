@@ -16,6 +16,7 @@ public enum EmailSceneEnum {
     REGISTER("register", "注册"),
     LOGIN("login", "登录"),
     RESET_PASSWORD("reset-password", "重置密码"),
+    UPDATE_PROFILE("update-profile", "修改资料"),
     ;
 
     /**

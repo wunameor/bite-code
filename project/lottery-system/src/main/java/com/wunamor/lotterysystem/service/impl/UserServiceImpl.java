@@ -13,9 +13,12 @@ import com.wunamor.lotterysystem.service.EmailCodeService;
 import com.wunamor.lotterysystem.service.UserService;
 import com.wunamor.lotterysystem.service.command.EmailCodeCommand;
 import com.wunamor.lotterysystem.service.command.UserLoginCommand;
+import com.wunamor.lotterysystem.service.command.UserProfileUpdateCommand;
 import com.wunamor.lotterysystem.service.command.UserRegisterCommand;
+import com.wunamor.lotterysystem.service.command.UserResetPasswordCommand;
 import com.wunamor.lotterysystem.service.dto.UserListDTO;
 import com.wunamor.lotterysystem.service.dto.UserLoginDTO;
+import com.wunamor.lotterysystem.service.dto.UserProfileDTO;
 import com.wunamor.lotterysystem.service.dto.UserRegisterDTO;
 import com.wunamor.lotterysystem.service.enums.UserIdentityEnum;
 import jakarta.validation.constraints.NotBlank;
@@ -161,7 +164,48 @@ public class UserServiceImpl implements UserService {
                 }
                 emailCodeService.sendCode(userDO.getEmail(), emailCodeCommand.getScene());
             }
+            case UPDATE_PROFILE -> {
+                // 修改资料：account 是用户填写的新邮箱，需要直接发到这个待绑定地址
+                if (!RegexUtil.checkMail(account)) {
+                    throw new ServiceException(ServiceErrorCodeConstants.REGISTER_MAIL_PATTERN_ERROR);
+                }
+                checkEmailIsUsed(account);
+                emailCodeService.sendCode(account, EmailSceneEnum.UPDATE_PROFILE);
+            }
         }
+    }
+
+    @Override
+    public void resetPassword(UserResetPasswordCommand command) {
+        // 1. 基础参数校验；重置密码必须同时提供账号、验证码和新密码
+        if (command == null || !StringUtils.hasText(command.getAccount())
+                || !StringUtils.hasText(command.getEmailCode())
+                || !StringUtils.hasText(command.getNewPassword())) {
+            throw new ServiceException(ServiceErrorCodeConstants.LOGIN_INFO_IS_EMPTY);
+        }
+
+        // 2. 账号归一化，邮箱统一小写，避免大小写导致查不到用户
+        String account = normalizeAccount(command.getAccount());
+
+        // 3. 查用户；账号不存在时返回和验证码错误一致的文案，避免枚举账号
+        UserDO userDO = getUserByAccount(account);
+        if (userDO == null) {
+            log.warn("重置密码失败，账号不存在，account: {}", account);
+            throw new ServiceException(ServiceErrorCodeConstants.LOGIN_ACCOUNT_OR_CODE_ERROR);
+        }
+
+        // 4. 校验重置密码场景验证码；校验通过后验证码立即失效
+        emailCodeService.verifyCode(userDO.getEmail(), command.getEmailCode(),
+                EmailSceneEnum.RESET_PASSWORD);
+
+        // 5. 校验新密码强度
+        if (!RegexUtil.checkPassword(command.getNewPassword())) {
+            throw new ServiceException(ServiceErrorCodeConstants.REGISTER_PASSWORD_PATTERN_ERROR);
+        }
+
+        // 6. 新密码按登录逻辑一致做 SHA-256 后落库
+        userDO.setPassword(DigestUtil.sha256Hex(command.getNewPassword()));
+        userMapper.updateById(userDO);
     }
 
     @Override
@@ -169,6 +213,47 @@ public class UserServiceImpl implements UserService {
         return userMapper.listUsers().stream()
                 .map(this::buildUserListDTO)
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    public UserProfileDTO getUserProfile(Long userId) {
+        // 1. 只允许读取当前登录用户资料
+        UserDO userDO = getExistingUser(userId);
+
+        // 2. 敏感字段只返回脱敏值，前端回显时不暴露完整邮箱和手机号
+        UserProfileDTO dto = new UserProfileDTO();
+        dto.setUserId(userDO.getId());
+        dto.setUserName(userDO.getUserName());
+        dto.setEmailMasked(maskEmail(userDO.getEmail()));
+        dto.setPhoneMasked(maskPhone(userDO.getPhoneNumber() == null
+                ? null : userDO.getPhoneNumber().getValue()));
+        dto.setIdentity(userDO.getIdentity());
+        dto.setIdentityDesc(buildIdentityDesc(userDO.getIdentity()));
+        return dto;
+    }
+
+    @Override
+    public void updateUserProfile(UserProfileUpdateCommand command) {
+        // 1. 基础参数校验
+        if (command == null || command.getUserId() == null) {
+            throw new ServiceException(ServiceErrorCodeConstants.LOGIN_INFO_IS_EMPTY);
+        }
+        UserDO userDO = getExistingUser(command.getUserId());
+
+        // 2. 修改用户名 / 昵称
+        updateUserName(command, userDO);
+
+        // 3. 修改邮箱；前端传脱敏值或空值时保持原邮箱
+        updateEmail(command, userDO);
+
+        // 4. 修改手机号；前端传脱敏值或空值时保持原手机号
+        updatePhoneNumber(command, userDO);
+
+        // 5. 修改密码；不填新密码时保持原密码
+        updatePassword(command, userDO);
+
+        // 6. 一次性更新资料字段，避免多次写库
+        userMapper.updateById(userDO);
     }
 
     private UserListDTO buildUserListDTO(UserDO userDO) {
@@ -289,5 +374,162 @@ public class UserServiceImpl implements UserService {
         if (mailCount == null || mailCount >= 1) {
             throw new ServiceException(ServiceErrorCodeConstants.REGISTER_MAIL_USED);
         }
+    }
+
+    /**
+     * 按当前登录用户 id 查询用户，不存在时抛业务异常。
+     */
+    private UserDO getExistingUser(Long userId) {
+        UserDO userDO = userMapper.selectById(userId);
+        if (userDO == null) {
+            throw new ServiceException(ServiceErrorCodeConstants.LOGIN_ACCOUNT_OR_PASSWORD_ERROR);
+        }
+        return userDO;
+    }
+
+    /**
+     * 更新用户名；用户名与登录命名空间有关，必须保持非空且不含 @。
+     */
+    private void updateUserName(UserProfileUpdateCommand command, UserDO userDO) {
+        String userName = command.getUserName() == null ? null : command.getUserName().trim();
+        if (!StringUtils.hasText(userName)) {
+            throw new ServiceException(ServiceErrorCodeConstants.PROFILE_USER_NAME_IS_EMPTY);
+        }
+        if (userName.contains("@")) {
+            throw new ServiceException(ServiceErrorCodeConstants.REGISTER_USER_NAME_CONTAINS_AT);
+        }
+        if (userName.equals(userDO.getUserName())) {
+            return;
+        }
+
+        // 只排除自己，避免把“用户名没改”误判成重复
+        UserDO sameNameUser = userMapper.getUserByUserName(userName);
+        if (sameNameUser != null && !sameNameUser.getId().equals(userDO.getId())) {
+            throw new ServiceException(ServiceErrorCodeConstants.REGISTER_USER_NAME_USED);
+        }
+        userDO.setUserName(userName);
+    }
+
+    /**
+     * 更新邮箱；空值或脱敏值表示不修改。
+     */
+    private void updateEmail(UserProfileUpdateCommand command, UserDO userDO) {
+        if (isMaskedOrBlank(command.getEmail())) {
+            return;
+        }
+
+        String email = normalizeEmail(command.getEmail().trim());
+        if (!RegexUtil.checkMail(email)) {
+            throw new ServiceException(ServiceErrorCodeConstants.REGISTER_MAIL_PATTERN_ERROR);
+        }
+        if (email.equals(userDO.getEmail())) {
+            return;
+        }
+        if (!StringUtils.hasText(command.getEmailCode())) {
+            throw new ServiceException(ServiceErrorCodeConstants.PROFILE_EMAIL_CODE_REQUIRED);
+        }
+
+        emailCodeService.verifyCode(email, command.getEmailCode(), EmailSceneEnum.UPDATE_PROFILE);
+
+        UserDO sameEmailUser = userMapper.getUserByEmail(email);
+        if (sameEmailUser != null && !sameEmailUser.getId().equals(userDO.getId())) {
+            throw new ServiceException(ServiceErrorCodeConstants.REGISTER_MAIL_USED);
+        }
+        userDO.setEmail(email);
+    }
+
+    /**
+     * 更新手机号；空值或脱敏值表示不修改。
+     */
+    private void updatePhoneNumber(UserProfileUpdateCommand command, UserDO userDO) {
+        if (isMaskedOrBlank(command.getPhoneNumber())) {
+            return;
+        }
+
+        String phoneNumber = command.getPhoneNumber().trim();
+        if (!RegexUtil.checkMobile(phoneNumber)) {
+            throw new ServiceException(ServiceErrorCodeConstants.REGISTER_PHONE_PATTERN_ERROR);
+        }
+
+        String oldPhoneNumber = userDO.getPhoneNumber() == null ? null : userDO.getPhoneNumber().getValue();
+        if (phoneNumber.equals(oldPhoneNumber)) {
+            return;
+        }
+
+        // 手机号唯一性只排除自己，便于用户只改其它资料时不被自己占用
+        UserDO samePhoneUser = findUserByPhone(phoneNumber);
+        if (samePhoneUser != null && !samePhoneUser.getId().equals(userDO.getId())) {
+            throw new ServiceException(ServiceErrorCodeConstants.REGISTER_PHONE_USED);
+        }
+        userDO.setPhoneNumber(new Encrypt(phoneNumber));
+    }
+
+    /**
+     * 更新密码；不填新密码表示不修改。
+     */
+    private void updatePassword(UserProfileUpdateCommand command, UserDO userDO) {
+        if (!StringUtils.hasText(command.getNewPassword())) {
+            return;
+        }
+        if (!RegexUtil.checkPassword(command.getNewPassword())) {
+            throw new ServiceException(ServiceErrorCodeConstants.REGISTER_PASSWORD_PATTERN_ERROR);
+        }
+
+        // 已有密码的用户必须验证原密码；无密码的普通用户允许首次设置密码
+        if (StringUtils.hasText(userDO.getPassword())) {
+            String oldEncrypted = DigestUtil.sha256Hex(command.getOldPassword());
+            if (!oldEncrypted.equals(userDO.getPassword())) {
+                throw new ServiceException(ServiceErrorCodeConstants.PROFILE_OLD_PASSWORD_ERROR);
+            }
+        }
+
+        userDO.setPassword(DigestUtil.sha256Hex(command.getNewPassword()));
+    }
+
+    /**
+     * 身份 code 转中文描述。
+     */
+    private String buildIdentityDesc(Integer identity) {
+        UserIdentityEnum identityEnum = identity == null
+                ? null
+                : UserIdentityEnum.getValueById(identity);
+        return identityEnum == null ? "未知" : identityEnum.getIdentity();
+    }
+
+    /**
+     * 判断前端是否传了空值或脱敏值；这类值表示“不修改”。
+     */
+    private boolean isMaskedOrBlank(String value) {
+        return !StringUtils.hasText(value) || value.contains("*");
+    }
+
+    /**
+     * 邮箱脱敏：保留首字符和域名，中间用 * 替代。
+     */
+    private String maskEmail(String email) {
+        if (!StringUtils.hasText(email) || !email.contains("@")) {
+            return "***";
+        }
+        int atIndex = email.indexOf('@');
+        String prefix = email.substring(0, Math.min(1, atIndex));
+        String domain = email.substring(atIndex);
+        return prefix + "***" + domain;
+    }
+
+    /**
+     * 手机号脱敏：保留前 3 位和后 4 位。
+     */
+    private String maskPhone(String phone) {
+        if (!StringUtils.hasText(phone) || phone.length() < 7) {
+            return "***";
+        }
+        return phone.substring(0, 3) + "****" + phone.substring(phone.length() - 4);
+    }
+
+    /**
+     * 按明文手机号查询用户；EncryptTypeHandler 会把 Encrypt 转成密文条件。
+     */
+    private UserDO findUserByPhone(String phoneNumber) {
+        return userMapper.getUserByPhone(new Encrypt(phoneNumber));
     }
 }

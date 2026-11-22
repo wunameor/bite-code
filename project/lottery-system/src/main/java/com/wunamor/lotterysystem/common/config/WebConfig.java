@@ -31,7 +31,8 @@ public class WebConfig implements WebMvcConfigurer {
                 "/error",
                 "/.well-known/**",
                 "/user/login",
-                "/user/email-code"
+                "/user/email-code",
+                "/user/reset-password"
         );
 
         registry.addInterceptor(loginInterceptor)
