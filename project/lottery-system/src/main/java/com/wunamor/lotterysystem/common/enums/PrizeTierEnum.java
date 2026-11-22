@@ -29,4 +29,13 @@ public enum PrizeTierEnum {
         }
         return null;
     }
+
+    /**
+     * 返回奖品等级排序值：一等奖在前，其次二等奖、三等奖。
+     * 未知等级排到最后，避免脏数据打乱已知等级的顺序。
+     */
+    public static int orderOf(String code) {
+        PrizeTierEnum tier = getByCode(code);
+        return tier == null ? Integer.MAX_VALUE : tier.ordinal();
+    }
 }

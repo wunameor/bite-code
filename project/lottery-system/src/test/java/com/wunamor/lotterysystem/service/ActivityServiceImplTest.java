@@ -348,15 +348,38 @@ class ActivityServiceImplTest {
     }
 
     @Test
-    void getActivityDetailRebuildsFromDatabaseWhenCacheMiss() {
-        when(activityCacheService.getActivityDetail(100L)).thenReturn(null);
+    void getActivityDetailFreshSkipsCacheAndRebuilds() {
+        ActivityDetailDTO cached = new ActivityDetailDTO();
+        cached.setActivityId(100L);
+        when(activityCacheService.getActivityDetail(100L)).thenReturn(cached);
         when(activityMapper.selectById(100L))
                 .thenReturn(activityDO(100L, "年会抽奖", ActivityStatusEnum.RUNNING.getCode()));
         when(activityPrizeMapper.selectList(any())).thenReturn(List.of(
                 activityPrizeDO(1L, 10L, 2L, PrizeTierEnum.FIRST_PRIZE,
-                        ActivityPrizeStatusEnum.PENDING),
+                        ActivityPrizeStatusEnum.PENDING)));
+        when(prizeMapper.selectBatchIds(any())).thenReturn(List.of(prizeDO(10L)));
+        when(activityUserMapper.selectList(any())).thenReturn(List.of(
+                activityUserDO(1L, 1L, "张三")));
+
+        ActivityDetailDTO result = activityService.getActivityDetail(100L, true);
+
+        assertEquals(100L, result.getActivityId());
+        verify(activityCacheService, never()).getActivityDetail(100L);
+        verify(activityMapper).selectById(100L);
+        verify(activityCacheService).cacheActivityDetail(result);
+    }
+
+    @Test
+    void getActivityDetailRebuildsFromDatabaseWhenCacheMiss() {
+        when(activityCacheService.getActivityDetail(100L)).thenReturn(null);
+        when(activityMapper.selectById(100L))
+                .thenReturn(activityDO(100L, "年会抽奖", ActivityStatusEnum.RUNNING.getCode()));
+        // 故意让数据库返回二等奖在前，验证服务层会按奖品等级重新排序
+        when(activityPrizeMapper.selectList(any())).thenReturn(List.of(
                 activityPrizeDO(2L, 11L, 1L, PrizeTierEnum.SECOND_PRIZE,
-                        ActivityPrizeStatusEnum.DRAWN)));
+                        ActivityPrizeStatusEnum.DRAWN),
+                activityPrizeDO(1L, 10L, 2L, PrizeTierEnum.FIRST_PRIZE,
+                        ActivityPrizeStatusEnum.PENDING)));
         when(prizeMapper.selectBatchIds(any())).thenReturn(List.of(
                 prizeDO(10L), prizeDO(11L)));
         when(activityUserMapper.selectList(any())).thenReturn(List.of(

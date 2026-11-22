@@ -92,16 +92,18 @@ public class ActivityController {
     }
 
     /**
-     * 查询活动抽奖详情；缓存优先，未命中时由 Service 回源数据库。
+     * 查询活动抽奖详情；普通查询缓存优先，抽奖页可传 fresh=true 强制读最新状态。
      */
     @GetMapping("/detail")
     public ActivityDetailResponse getActivityDetail(
             @Valid @ModelAttribute ActivityDetailRequest request) {
         // 1. 记录查询参数，便于排查缓存和数据库问题
-        log.info("查询活动详情，activityId: {}", request.getActivityId());
+        log.info("查询活动详情，activityId: {}, fresh: {}",
+                request.getActivityId(), request.getFresh());
 
         // 2. 调用 Service 查询详情
-        ActivityDetailDTO detail = activityService.getActivityDetail(request.getActivityId());
+        ActivityDetailDTO detail = activityService.getActivityDetail(
+                request.getActivityId(), Boolean.TRUE.equals(request.getFresh()));
 
         // 3. DTO 转响应，嵌套列表逐项转换
         return convertToActivityDetailResponse(detail);

@@ -39,6 +39,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -138,24 +139,29 @@ public class ActivityServiceImpl implements ActivityService {
 
     @Override
     public ActivityDetailDTO getActivityDetail(Long activityId) {
+        return getActivityDetail(activityId, false);
+    }
+
+    @Override
+    public ActivityDetailDTO getActivityDetail(Long activityId, boolean fresh) {
         // 1. 校验活动 id，直接调用 Service 时也做一次兜底
         if (activityId == null || activityId < 1) {
             throw new ServiceException(ServiceErrorCodeConstants.ACTIVITY_ID_IS_EMPTY);
         }
 
-        // 2. 优先读取 Redis 快照，命中直接返回
-        ActivityDetailDTO cached = activityCacheService.getActivityDetail(activityId);
+        // 2. fresh=true 用于抽奖页重进，必须跳过旧快照读取最新奖品状态
+        ActivityDetailDTO cached = fresh ? null : activityCacheService.getActivityDetail(activityId);
         if (cached != null) {
             log.debug("活动详情命中缓存，activityId: {}", activityId);
             return cached;
         }
 
-        // 3. 缓存未命中时回源 MySQL 组装详情
+        // 3. 缓存未命中或强制刷新时回源 MySQL 组装详情
         ActivityDetailDTO detail = loadActivityDetail(activityId);
 
         // 4. 回写 Redis；Redis 不可用时由缓存服务记日志，不影响本次返回
         activityCacheService.cacheActivityDetail(detail);
-        log.debug("活动详情回源数据库并写入缓存，activityId: {}", activityId);
+        log.debug("活动详情回源数据库并写入缓存，activityId: {}, fresh: {}", activityId, fresh);
         return detail;
     }
 
@@ -169,11 +175,11 @@ public class ActivityServiceImpl implements ActivityService {
             throw new ServiceException(ServiceErrorCodeConstants.ACTIVITY_NOT_FOUND);
         }
 
-        // 2. 按创建顺序查询活动奖品关联
-        List<ActivityPrizeDO> activityPrizes = activityPrizeMapper.selectList(
-                new LambdaQueryWrapper<ActivityPrizeDO>()
-                        .eq(ActivityPrizeDO::getActivityId, activityId)
-                        .orderByAsc(ActivityPrizeDO::getId));
+        // 2. 查询活动奖品关联，并按一等奖、二等奖、三等奖排序
+        List<ActivityPrizeDO> activityPrizes = sortActivityPrizes(
+                activityPrizeMapper.selectList(
+                        new LambdaQueryWrapper<ActivityPrizeDO>()
+                                .eq(ActivityPrizeDO::getActivityId, activityId)));
 
         // 3. 批量查询奖品主表，避免逐条查询
         Map<Long, PrizeDO> prizeById = queryPrizeMap(activityPrizes);
@@ -194,6 +200,19 @@ public class ActivityServiceImpl implements ActivityService {
         detail.setPrizes(buildActivityDetailPrizes(activityPrizes, prizeById));
         detail.setUsers(buildActivityDetailUsers(activityUsers));
         return detail;
+    }
+
+    /**
+     * 按一等奖、二等奖、三等奖排序；同等级保持数据库 id 顺序。
+     */
+    private List<ActivityPrizeDO> sortActivityPrizes(List<ActivityPrizeDO> prizes) {
+        // MyBatis 返回的列表通常可变，但测试/其他实现可能返回不可变列表，这里统一排序副本
+        List<ActivityPrizeDO> sorted = new ArrayList<>(prizes);
+        sorted.sort(Comparator
+                .comparingInt((ActivityPrizeDO prize) ->
+                        PrizeTierEnum.orderOf(prize.getPrizeTiers()))
+                .thenComparing(ActivityPrizeDO::getId));
+        return sorted;
     }
 
     /**
@@ -220,11 +239,11 @@ public class ActivityServiceImpl implements ActivityService {
     }
 
     /**
-     * 按活动奖品关联顺序组装奖品快照。
+     * 按已排序的活动奖品顺序组装奖品快照。
      */
     private List<ActivityDetailPrizeDTO> buildActivityDetailPrizes(
             List<ActivityPrizeDO> activityPrizes, Map<Long, PrizeDO> prizeById) {
-        // 1. 逐个关联奖品主表数据，保持创建时的奖品顺序
+        // 1. 逐个关联奖品主表数据，保持一等奖、二等奖、三等奖的顺序
         List<ActivityDetailPrizeDTO> prizes = new ArrayList<>(activityPrizes.size());
         for (ActivityPrizeDO activityPrize : activityPrizes) {
             PrizeDO prizeDO = prizeById.get(activityPrize.getPrizeId());
@@ -457,11 +476,14 @@ public class ActivityServiceImpl implements ActivityService {
         detail.setDescription(activityDO.getDescription());
         detail.setValid(ActivityStatusEnum.RUNNING.getCode().equals(activityDO.getStatus()));
 
-        // 2. 按 prizeId 映射奖品，再按命令顺序组装奖品快照
+        // 2. 按 prizeId 映射奖品，再按一等奖、二等奖、三等奖顺序组装奖品快照
         Map<Long, PrizeDO> prizeById = prizes.stream()
                 .collect(Collectors.toMap(PrizeDO::getId, prize -> prize));
+        List<ActivityPrizeCommand> orderedPrizes = new ArrayList<>(prizeCommands);
+        orderedPrizes.sort(Comparator.comparingInt(
+                command -> command.getPrizeTier().ordinal()));
         List<ActivityDetailPrizeDTO> prizeDetails = new ArrayList<>();
-        for (ActivityPrizeCommand prizeCommand : prizeCommands) {
+        for (ActivityPrizeCommand prizeCommand : orderedPrizes) {
             PrizeDO prizeDO = prizeById.get(prizeCommand.getPrizeId());
             if (prizeDO != null) {
                 prizeDetails.add(buildActivityPrizeDetail(prizeCommand, prizeDO));
