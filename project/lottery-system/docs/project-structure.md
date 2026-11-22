@@ -115,7 +115,7 @@ src/main/java/com/wunamor/lotterysystem
 │   ├── DrawPrizeController.java       # 抽奖任务提交、抽奖状态轮询
 │   ├── FileController.java            # 图片上传
 │   ├── PrizeController.java           # 奖品创建、奖品列表
-│   ├── UserController.java            # 用户注册、登录、验证码、人员列表
+│   ├── UserController.java            # 用户注册、登录、验证码、人员列表、个人资料
 │   └── WinningRecordController.java   # 中奖记录查询
 ├── mapper                             # 数据访问层
 │   ├── dataobject                     # 数据库对象 DO
@@ -171,6 +171,8 @@ src/main/resources
     ├── activities-list.html           # 活动列表页
     ├── create-activity.html           # 创建活动页
     ├── draw.html                      # 抽奖页、异步任务轮询页、中奖展示页
+    ├── profile.html                   # 当前登录用户个人信息编辑页
+    ├── forgot-password.html           # 忘记密码页，通过邮箱验证码重置密码
     ├── css                            # 页面样式目录
     ├── js                             # 页面脚本目录
     └── pic                            # 页面图片资源目录
@@ -267,7 +269,7 @@ common/constants
 ```text
 common/enums
 ├── ActivityStatusEnum.java            # 活动状态：RUNNING / FINISHED
-├── EmailSceneEnum.java                # 邮箱验证码场景：注册、登录等
+├── EmailSceneEnum.java                # 邮箱验证码场景：注册、登录、重置密码、修改资料
 ├── LoginTypeEnum.java                 # 登录方式：密码、邮箱验证码
 └── PrizeTierEnum.java                 # 奖品等级：FIRST_PRIZE / SECOND_PRIZE / THIRD_PRIZE
 ```
@@ -329,6 +331,7 @@ common/interceptor
 - 放行 CORS 预检请求。
 - 放行静态资源处理器请求。
 - 支持从 `Authorization: Bearer <token>`、`token`、`user_token` 中读取 token。
+- token 有效时把 `userId` 和 `identity` 写入 request attribute，供 Controller 读取当前登录用户。
 - 未登录返回 `401`。
 - 管理员接口越权访问返回 `403`。
 
@@ -353,6 +356,7 @@ common/interceptor
 ```text
 /user/login
 /user/email-code
+/user/reset-password
 /*.html
 /css/**
 /js/**
@@ -503,7 +507,10 @@ controller/response
 POST /user/email-code                  # 发送邮箱验证码，公开接口
 POST /user/register                    # 管理员注册用户
 POST /user/login                       # 用户登录，返回 JWT
+POST /user/reset-password              # 通过邮箱验证码重置密码，公开接口
 GET  /user/list                        # 管理员查看人员列表
+GET  /user/profile                     # 当前登录用户查看个人资料，敏感字段脱敏
+PUT  /user/profile                     # 当前登录用户修改个人资料
 ```
 
 #### `PrizeController.java`
@@ -893,6 +900,8 @@ static
 ├── activities-list.html               # 活动列表页
 ├── create-activity.html               # 创建活动页
 ├── draw.html                          # 抽奖页和抽奖任务轮询页
+├── profile.html                       # 当前登录用户个人信息编辑页
+├── forgot-password.html               # 忘记密码页，通过邮箱验证码重置密码
 ├── css                                # 页面样式
 ├── js                                 # 页面脚本
 └── pic                                # 页面图片资源

@@ -210,6 +210,8 @@ http://localhost:8080/create-prizes.html
 http://localhost:8080/activities-list.html
 http://localhost:8080/create-activity.html
 http://localhost:8080/draw.html
+http://localhost:8080/profile.html
+http://localhost:8080/forgot-password.html
 ```
 
 说明：
@@ -217,6 +219,8 @@ http://localhost:8080/draw.html
 - `blogin.html` 是唯一登录入口，只允许管理员账号登录。
 - `login.html` 仅保留为兼容跳转页，访问后会自动跳转到 `blogin.html`。
 - 普通用户由管理员在后台创建，只作为活动参与人员，不提供前台登录入口。
+- `admin.html` 右上角显示当前登录昵称，并通过下拉框进入个人信息和退出登录。
+- `forgot-password.html` 通过邮箱验证码重置密码。
 
 ## 主要接口
 
@@ -236,13 +240,19 @@ http://localhost:8080/draw.html
 POST /user/email-code
 POST /user/register
 POST /user/login
+POST /user/reset-password
 GET  /user/list
+GET  /user/profile
+PUT  /user/profile
 ```
 
 说明：
 
-- `/user/login` 和 `/user/email-code` 是公开接口。
+- `/user/login`、`/user/email-code` 和 `/user/reset-password` 是公开接口。
+- `/user/reset-password` 使用 `RESET_PASSWORD` 场景的邮箱验证码。
 - `/user/register` 和 `/user/list` 仅管理员可访问。
+- `/user/profile` 查询和修改当前登录用户资料，登录用户即可访问。
+- `/user/profile` 返回的邮箱和手机号是脱敏值；前端提交空值或带 `*` 的值表示不修改。
 
 ### 奖品接口
 

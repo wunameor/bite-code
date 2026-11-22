@@ -404,6 +404,7 @@ user_token
 ```text
 /user/login
 /user/email-code
+/user/reset-password
 静态资源
 ```
 
@@ -424,6 +425,14 @@ user_token
 ```
 
 未登录返回 401，非管理员访问管理员接口返回 403。
+
+当前登录用户接口：
+
+```text
+/user/profile
+```
+
+`/user/profile` 只允许已登录用户访问，并且只能读取和修改自己的资料。邮箱、手机号在响应中返回脱敏值。
 
 ## 文件上传约定
 
