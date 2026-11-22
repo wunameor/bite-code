@@ -219,6 +219,25 @@ class LoginInterceptorTest {
         assertTrue(interceptor.preHandle(request, new MockHttpServletResponse(), new Object()));
     }
 
+    @Test
+    void drawPrizeWithNormalUserTokenReturns403() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/draw-prize");
+        request.addHeader("Authorization", "Bearer " + tokenWithIdentity(1));
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        assertFalse(interceptor.preHandle(request, response, new Object()));
+        assertEquals(403, response.getStatus());
+        assertTrue(response.getContentAsString().contains("\"code\":403"));
+    }
+
+    @Test
+    void drawPrizeWithAdminTokenPasses() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/draw-prize");
+        request.addHeader("Authorization", "Bearer " + tokenWithIdentity(0));
+
+        assertTrue(interceptor.preHandle(request, new MockHttpServletResponse(), new Object()));
+    }
+
     private String validToken() {
         return JWTUtil.genJwt(Map.<String, Object>of("userId", 1));
     }

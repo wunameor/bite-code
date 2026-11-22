@@ -258,7 +258,8 @@
                                 id: '#userList'
                             }, '*');
                         } else {
-                            var target = admin ? 'blogin.html' : 'login.html';
+                            // 登录入口统一为 blogin.html，login.html 仅保留为兼容跳转页
+                            var target = 'blogin.html';
                             setTimeout(function () {
                                 location.href = target;
                             }, 1000);

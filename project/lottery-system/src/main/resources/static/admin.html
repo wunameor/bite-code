@@ -210,19 +210,47 @@
         src="./js/jquery.min.js"></script>
 <script src="./js/auth.js"></script>
 <script>
-  // 监听子message事件,实现子页面向父页面传递
+  /*
+   * 允许通过 message 切换的 iframe 页面及其对应菜单。
+   * 不能直接用消息里的 from 拼地址：浏览器插件 content script 也会向页面
+   * postMessage，曾出现 from=content-script 被当成页面地址，导致 iframe
+   * 请求 /content-script 并显示“资源不存在”。
+   */
+  var FRAME_PAGES = {
+    'activities-list.html': '#activitiesList',
+    'prizes-list.html': '#prizesList',
+    'user-list.html': '#userList'
+  };
+
+  // 监听子页面消息，校验来源和白名单后再切换 iframe
   window.addEventListener('message', function(e){
-    console.log('子页面传递的数据', e.data)
-    if(e.data && e.data.from){
-      var pages = e.data.from+'?param=' +  new Date().getTime()
-      $('#contentFrame').attr('src', pages);
-      let id = e.data.id
-      // 移除所有链接的激活样式
-      $('ul.nav .nav-link').removeClass('active');
-      // 为当前点击的链接添加激活样式
-      $(id).addClass('active');
-      $(id).parent().parent('.sub-category').prev().addClass('active');
+    // 1. 忽略非同源消息
+    if(e.origin !== window.location.origin){
+      return;
     }
+
+    var frame = document.getElementById('contentFrame');
+
+    // 2. 只接受当前 iframe 发来的消息，插件发到顶层 window 的消息会被过滤
+    if(!frame || e.source !== frame.contentWindow){
+      return;
+    }
+
+    var data = e.data;
+
+    // 3. 只接受白名单页面，避免 from 被拼成 content-script 之类的非法地址
+    if(!data || !Object.prototype.hasOwnProperty.call(FRAME_PAGES, data.from)){
+      return;
+    }
+
+    // 4. 使用绝对路径，避免相对路径解析问题
+    frame.src = '/' + data.from + '?param=' + Date.now();
+
+    // 5. 激活菜单使用白名单里的 id，不使用消息里的任意 id
+    var id = FRAME_PAGES[data.from];
+    $('ul.nav .nav-link').removeClass('active');
+    $(id).addClass('active');
+    $(id).parent().parent('.sub-category').prev().addClass('active');
   }, false);
 
   // 导航点击事件处理
@@ -260,6 +288,9 @@
   // 退出登录
   function logout(){
     localStorage.removeItem("user_token")
+    localStorage.removeItem("user_id")
+    localStorage.removeItem("user_name")
+    localStorage.removeItem("user_identity")
     location.href='/blogin.html'
   }
 </script>
