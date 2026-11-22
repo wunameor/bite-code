@@ -50,7 +50,7 @@ public class JacksonUtil {
         });
     }
 
-    public static <T> T readListValue(String json, Class<T> type) {
+    public static <T> List<T> readListValue(String json, Class<T> type) {
         JavaType javaType = getObjectMapper().getTypeFactory().constructParametricType(List.class, type);
         return tryParse(() -> {
             return getObjectMapper().readValue(json, javaType);

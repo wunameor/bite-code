@@ -65,5 +65,17 @@ public interface ServiceErrorCodeConstants {
     ErrorCode PRIZE_CREATE_ERROR = new ErrorCode(1032, "奖品创建失败，请稍后再试");
 
     // ============ 抽奖错误码 ===========
+    ErrorCode DRAW_INFO_IS_EMPTY = new ErrorCode(1046, "抽奖信息为空");
+    ErrorCode DRAW_ACTIVITY_NOT_RUNNING = new ErrorCode(1047, "活动已结束，不能抽奖");
+    ErrorCode DRAW_PRIZE_INVALID = new ErrorCode(1048, "活动奖品不存在");
+    ErrorCode DRAW_PRIZE_ALREADY_DRAWN = new ErrorCode(1049, "该奖品已抽取");
+    ErrorCode DRAW_WINNER_COUNT_INVALID = new ErrorCode(1050, "中奖人数与奖品数量不一致");
+    ErrorCode DRAW_WINNER_DUPLICATE = new ErrorCode(1051, "中奖人员重复");
+    ErrorCode DRAW_WINNER_INVALID = new ErrorCode(1052, "中奖人员不存在或已中奖");
+    ErrorCode DRAW_WINNER_CONTACT_INVALID = new ErrorCode(1053, "中奖人员邮箱或手机号缺失");
+    ErrorCode DRAW_PRIZE_ERROR = new ErrorCode(1054, "抽奖失败，请稍后再试");
+    ErrorCode DRAW_REQUEST_NOT_FOUND = new ErrorCode(1055, "抽奖请求不存在");
+    ErrorCode DRAW_PRIZE_ORDER_INVALID = new ErrorCode(1056, "抽奖顺序错误，请先抽取当前奖品");
+    ErrorCode DRAW_REQUEST_PROCESSING = new ErrorCode(1057, "该奖品正在处理中，请勿重复提交");
 
 }
