@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>个人信息</title>
+  <link rel="stylesheet" href="./css/bootstrap.min.css">
+  <link rel="stylesheet" href="./css/base.css">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f2f2f2;
+      color: #222222;
+    }
+    .profile-page {
+      padding: 24px 30px;
+    }
+    .profile-card {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 28px 32px;
+      background-color: #fff;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
+    }
+    .profile-title {
+      margin-bottom: 24px;
+      font-size: 22px;
+      font-weight: 600;
+    }
+    .profile-section {
+      margin-bottom: 28px;
+    }
+    .profile-section h5 {
+      margin-bottom: 16px;
+      font-size: 16px;
+      font-weight: 600;
+      color: #444444;
+    }
+    .form-row {
+      display: flex;
+      align-items: flex-start;
+      margin-bottom: 16px;
+    }
+    .form-label {
+      width: 120px;
+      padding-top: 8px;
+      color: #555555;
+      font-size: 14px;
+    }
+    .form-field {
+      flex: 1;
+    }
+    .form-control {
+      max-width: 420px;
+    }
+    .field-tip {
+      margin-top: 6px;
+      color: #888888;
+      font-size: 12px;
+      line-height: 18px;
+    }
+    .inline-actions {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    .email-code-row {
+      display: none;
+    }
+    .profile-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 12px;
+      padding-top: 8px;
+      border-top: 1px solid #eeeeee;
+    }
+    .btn-secondary {
+      background-color: #f5f5f5;
+      border-color: #dddddd;
+      color: #333333;
+    }
+  </style>
+</head>
+<body class="profile-page">
+<div class="profile-card">
+  <div class="profile-title">个人信息</div>
+
+  <form id="profileForm">
+    <div class="profile-section">
+      <h5>基本信息</h5>
+
+      <div class="form-row">
+        <label class="form-label" for="userId">用户 ID</label>
+        <div class="form-field">
+          <input class="form-control" type="text" id="userId" readonly>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <label class="form-label" for="userName">用户名 / 昵称</label>
+        <div class="form-field">
+          <input class="form-control" type="text" id="userName" name="userName" maxlength="255" required>
+          <div class="field-tip">用于登录和页面展示，不能包含 @。</div>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <label class="form-label" for="email">邮箱</label>
+        <div class="form-field">
+          <input class="form-control" type="text" id="email" name="email" autocomplete="off">
+          <div class="field-tip">当前邮箱已脱敏显示。保持带 * 的值或清空表示不修改邮箱。</div>
+        </div>
+      </div>
+
+      <div class="form-row email-code-row" id="emailCodeRow">
+        <label class="form-label" for="emailCode">邮箱验证码</label>
+        <div class="form-field">
+          <div class="inline-actions">
+            <input class="form-control" type="text" id="emailCode" name="emailCode" maxlength="6" inputmode="numeric">
+            <button type="button" class="btn btn-primary" id="sendEmailCodeBtn">获取验证码</button>
+          </div>
+          <div class="field-tip">修改邮箱时，需要向新邮箱发送并填写 6 位验证码。</div>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <label class="form-label" for="phoneNumber">手机号</label>
+        <div class="form-field">
+          <input class="form-control" type="text" id="phoneNumber" name="phoneNumber" maxlength="11" autocomplete="off">
+          <div class="field-tip">当前手机号已脱敏显示。保持带 * 的值或清空表示不修改手机号。</div>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <label class="form-label" for="identityDesc">身份</label>
+        <div class="form-field">
+          <input class="form-control" type="text" id="identityDesc" readonly>
+          <div class="field-tip">身份由管理员在人员管理中维护，个人资料页不允许自行修改。</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="profile-section">
+      <h5>安全设置</h5>
+
+      <div class="form-row">
+        <label class="form-label" for="oldPassword">原密码</label>
+        <div class="form-field">
+          <input class="form-control" type="password" id="oldPassword" name="oldPassword" autocomplete="current-password">
+          <div class="field-tip">已有密码的用户修改密码时必填。</div>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <label class="form-label" for="newPassword">新密码</label>
+        <div class="form-field">
+          <input class="form-control" type="password" id="newPassword" name="newPassword" autocomplete="new-password">
+          <div class="field-tip">6-12 位字母或数字。留空表示不修改密码。</div>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <label class="form-label" for="confirmPassword">确认新密码</label>
+        <div class="form-field">
+          <input class="form-control" type="password" id="confirmPassword" name="confirmPassword" autocomplete="new-password">
+        </div>
+      </div>
+    </div>
+
+    <div class="profile-actions">
+      <button type="button" class="btn btn-secondary" onclick="loadProfile()">重置</button>
+      <button type="submit" class="btn btn-primary">保存</button>
+    </div>
+  </form>
+</div>
+
+<script src="./js/jquery.min.js"></script>
+<script src="./js/auth.js"></script>
+<script>
+  // 保存后端返回的原始脱敏值，提交时用于判断用户是否真的修改了邮箱/手机号
+  var originalEmailMasked = '';
+  var originalPhoneMasked = '';
+
+  // 加载当前登录用户资料并回显
+  function loadProfile() {
+    $.ajax({
+      url: '/user/profile',
+      type: 'get',
+      dataType: 'json',
+      success: function(result) {
+        if (result.code !== 200) {
+          alert('获取个人信息失败：' + result.message);
+          return;
+        }
+
+        var data = result.data || {};
+        originalEmailMasked = data.emailMasked || '';
+        originalPhoneMasked = data.phoneMasked || '';
+
+        $('#userId').val(data.userId || '');
+        $('#userName').val(data.userName || '');
+        $('#email').val(originalEmailMasked);
+        $('#phoneNumber').val(originalPhoneMasked);
+        $('#identityDesc').val(data.identityDesc || '');
+        $('#emailCode').val('');
+        $('#oldPassword').val('');
+        $('#newPassword').val('');
+        $('#confirmPassword').val('');
+        refreshEmailCodeRow();
+      },
+      error: function(xhr) {
+        if (xhr.status === 401) {
+          alert('用户未登录，即将跳转到登录页!');
+          window.parent.location.href = '/blogin.html';
+          return;
+        }
+        alert('获取个人信息失败：' + xhr.status);
+      }
+    });
+  }
+
+  // 判断敏感字段是否被用户真正修改
+  function isChanged(rawValue, originalMasked) {
+    var value = (rawValue || '').trim();
+    return value !== '' && value !== originalMasked && value.indexOf('*') === -1;
+  }
+
+  // 邮箱改变时才显示验证码输入框
+  function refreshEmailCodeRow() {
+    if (isChanged($('#email').val(), originalEmailMasked)) {
+      $('#emailCodeRow').show();
+    } else {
+      $('#emailCodeRow').hide();
+      $('#emailCode').val('');
+    }
+  }
+
+  // 向新邮箱发送资料修改验证码
+  function sendEmailCode() {
+    var email = $('#email').val().trim();
+    if (!isChanged(email, originalEmailMasked)) {
+      alert('请先填写新的邮箱地址');
+      return;
+    }
+
+    $('#sendEmailCodeBtn').prop('disabled', true).text('发送中...');
+    $.ajax({
+      url: '/user/email-code',
+      type: 'post',
+      contentType: 'application/json',
+      dataType: 'json',
+      data: JSON.stringify({
+        scene: 'UPDATE_PROFILE',
+        account: email
+      }),
+      success: function(result) {
+        if (result.code !== 200) {
+          alert('验证码发送失败：' + result.message);
+          return;
+        }
+        alert('验证码已发送到新邮箱');
+      },
+      error: function(xhr) {
+        if (xhr.status === 401) {
+          alert('用户未登录，即将跳转到登录页!');
+          window.parent.location.href = '/blogin.html';
+          return;
+        }
+        alert('验证码发送失败：' + xhr.status);
+      },
+      complete: function() {
+        $('#sendEmailCodeBtn').prop('disabled', false).text('获取验证码');
+      }
+    });
+  }
+
+  // 前端基础校验，避免明显错误提交到后端
+  function validateForm() {
+    var userName = $('#userName').val().trim();
+    if (!userName) {
+      alert('用户名不能为空');
+      return false;
+    }
+    if (userName.indexOf('@') !== -1) {
+      alert('用户名不能包含 @');
+      return false;
+    }
+
+    var email = $('#email').val().trim();
+    if (isChanged(email, originalEmailMasked)) {
+      if (email.indexOf('@') === -1) {
+        alert('邮箱格式不正确');
+        return false;
+      }
+      if (!$('#emailCode').val().trim()) {
+        alert('修改邮箱需要填写验证码');
+        return false;
+      }
+    }
+
+    var phone = $('#phoneNumber').val().trim();
+    if (isChanged(phone, originalPhoneMasked) && !/^1[3-9]\d{9}$/.test(phone)) {
+      alert('手机号格式不正确');
+      return false;
+    }
+
+    var newPassword = $('#newPassword').val();
+    var confirmPassword = $('#confirmPassword').val();
+    if (newPassword || confirmPassword) {
+      if (!newPassword) {
+        alert('请填写新密码');
+        return false;
+      }
+      if (newPassword !== confirmPassword) {
+        alert('两次输入的新密码不一致');
+        return false;
+      }
+      if (!/^[0-9A-Za-z]{6,12}$/.test(newPassword)) {
+        alert('密码必须是 6-12 位字母或数字');
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  // 保存个人资料
+  function saveProfile() {
+    if (!validateForm()) {
+      return;
+    }
+
+    var payload = {
+      userName: $('#userName').val().trim(),
+      email: $('#email').val().trim(),
+      emailCode: $('#emailCode').val().trim(),
+      phoneNumber: $('#phoneNumber').val().trim(),
+      oldPassword: $('#oldPassword').val(),
+      newPassword: $('#newPassword').val()
+    };
+
+    $.ajax({
+      url: '/user/profile',
+      type: 'put',
+      contentType: 'application/json',
+      dataType: 'json',
+      data: JSON.stringify(payload),
+      success: function(result) {
+        if (result.code !== 200) {
+          alert('保存失败：' + result.message);
+          return;
+        }
+
+        alert('保存成功');
+        if (result.data && result.data.userName) {
+          localStorage.setItem('user_name', result.data.userName);
+          if (window.parent && typeof window.parent.loadHeaderUserProfile === 'function') {
+            window.parent.loadHeaderUserProfile();
+          }
+        }
+        loadProfile();
+      },
+      error: function(xhr) {
+        if (xhr.status === 401) {
+          alert('用户未登录，即将跳转到登录页!');
+          window.parent.location.href = '/blogin.html';
+          return;
+        }
+        if (xhr.status === 403) {
+          alert('没有权限修改个人信息');
+          return;
+        }
+        alert('保存失败：' + xhr.status);
+      }
+    });
+  }
+
+  $(document).ready(function() {
+    loadProfile();
+
+    $('#email').on('input', refreshEmailCodeRow);
+    $('#sendEmailCodeBtn').on('click', sendEmailCode);
+    $('#profileForm').on('submit', function(event) {
+      event.preventDefault();
+      saveProfile();
+    });
+  });
+</script>
+</body>
+</html>
