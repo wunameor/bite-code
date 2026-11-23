@@ -11,6 +11,7 @@ import com.wunamor.lotterysystem.mapper.ActivityPrizeMapper;
 import com.wunamor.lotterysystem.mapper.ActivityUserMapper;
 import com.wunamor.lotterysystem.mapper.PrizeMapper;
 import com.wunamor.lotterysystem.mapper.UserMapper;
+import com.wunamor.lotterysystem.mapper.WinningRecordMapper;
 import com.wunamor.lotterysystem.mapper.dataobject.ActivityDO;
 import com.wunamor.lotterysystem.mapper.dataobject.ActivityPrizeDO;
 import com.wunamor.lotterysystem.mapper.dataobject.ActivityUserDO;
@@ -18,6 +19,7 @@ import com.wunamor.lotterysystem.mapper.dataobject.PrizeDO;
 import com.wunamor.lotterysystem.mapper.dataobject.UserDO;
 import com.wunamor.lotterysystem.mapper.dataobject.WinningRecordDO;
 import com.wunamor.lotterysystem.service.ActivityCacheService;
+import com.wunamor.lotterysystem.service.ActivityService;
 import com.wunamor.lotterysystem.service.DrawPrizeService;
 import com.wunamor.lotterysystem.service.command.DrawPrizeCommand;
 import com.wunamor.lotterysystem.service.draw.state.DrawContext;
@@ -45,7 +47,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
- * 抽奖服务实现：数据库事务内完成校验和状态修改，事务提交后清缓存并投递通知。
+ * 抽奖服务实现：数据库事务内完成校验和状态修改，事务提交后重建缓存并投递通知。
  */
 @Slf4j
 @Service
@@ -57,6 +59,8 @@ public class DrawPrizeServiceImpl implements DrawPrizeService {
     private final PrizeMapper prizeMapper;
     private final UserMapper userMapper;
     private final ActivityCacheService activityCacheService;
+    private final ActivityService activityService;
+    private final WinningRecordMapper winningRecordMapper;
     private final DrawMessageProducer drawMessageProducer;
     private final DrawStateUpdaterChain drawStateUpdaterChain;
 
@@ -66,6 +70,8 @@ public class DrawPrizeServiceImpl implements DrawPrizeService {
                                 PrizeMapper prizeMapper,
                                 UserMapper userMapper,
                                 ActivityCacheService activityCacheService,
+                                ActivityService activityService,
+                                WinningRecordMapper winningRecordMapper,
                                 DrawMessageProducer drawMessageProducer,
                                 DrawStateUpdaterChain drawStateUpdaterChain) {
         this.activityMapper = activityMapper;
@@ -74,6 +80,8 @@ public class DrawPrizeServiceImpl implements DrawPrizeService {
         this.prizeMapper = prizeMapper;
         this.userMapper = userMapper;
         this.activityCacheService = activityCacheService;
+        this.activityService = activityService;
+        this.winningRecordMapper = winningRecordMapper;
         this.drawMessageProducer = drawMessageProducer;
         this.drawStateUpdaterChain = drawStateUpdaterChain;
     }
@@ -93,9 +101,9 @@ public class DrawPrizeServiceImpl implements DrawPrizeService {
         PrizeDO prize = getPrize(activityPrize.getPrizeId());
         checkPrizeOrder(command.getActivityId(), command.getPrizeId());
 
-        // 4. 校验中奖人数、人员待中奖状态和联系方式
+        // 4. 校验剩余中奖名额、人员待中奖状态和联系方式
         List<Long> winnerIds = command.getWinnerIds();
-        checkWinnerCount(winnerIds, activityPrize);
+        long drawnCount = checkWinnerQuota(winnerIds, activityPrize);
         Map<Long, ActivityUserDO> activityUserById =
                 queryPendingWinnerUsers(command.getActivityId(), winnerIds);
         Map<Long, UserDO> userById = queryWinnerUsers(winnerIds);
@@ -103,9 +111,10 @@ public class DrawPrizeServiceImpl implements DrawPrizeService {
         // 5. 组装抽奖上下文，并由状态更新链完成同一事务内的状态翻转
         DrawContext context = buildContext(command, activity, activityPrize, prize,
                 activityUserById, userById);
+        context.setPrizeDrawnCount(drawnCount);
         drawStateUpdaterChain.update(context);
 
-        // 6. 事务提交后清缓存并异步投递通知
+        // 6. 事务提交后重建活动详情缓存并异步投递通知
         afterCommit(context.getActivityId(), buildNotifyMessages(context.getWinningRecords()));
 
         // 7. 组装抽奖结果
@@ -215,14 +224,33 @@ public class DrawPrizeServiceImpl implements DrawPrizeService {
     }
 
     /**
-     * 校验中奖人数必须等于该奖品配置的数量。
+     * 校验本次中奖人数不超过奖品剩余名额。
+     *
+     * <p>抽奖支持一次抽一个人，所以不再要求本次人数等于奖品数量；
+     * 只要本次人数加上已经中奖人数不超过奖品数量即可。</p>
+     *
+     * @param winnerIds     本次中奖人员
+     * @param activityPrize 活动奖品
+     * @return 本次抽奖前该奖品已经中奖的人数
      */
-    private void checkWinnerCount(List<Long> winnerIds, ActivityPrizeDO activityPrize) {
-        long expected = activityPrize.getPrizeAmount() == null
+    private long checkWinnerQuota(List<Long> winnerIds, ActivityPrizeDO activityPrize) {
+        // 1. 奖品数量为空时视为没有可抽名额
+        long prizeAmount = activityPrize.getPrizeAmount() == null
                 ? 0L : activityPrize.getPrizeAmount();
-        if (winnerIds.size() != expected) {
+
+        // 2. 统计该奖品已经抽出的中奖人数，活动行锁保证统计和后续写入之间不会被并发抽奖打断
+        long drawnCount = winningRecordMapper.countByActivityIdAndPrizeId(
+                activityPrize.getActivityId(), activityPrize.getPrizeId());
+
+        // 3. 至少抽一个人，且本次人数必须在剩余名额内
+        long remaining = prizeAmount - drawnCount;
+        if (winnerIds.isEmpty()) {
             throw new ServiceException(ServiceErrorCodeConstants.DRAW_WINNER_COUNT_INVALID);
         }
+        if (winnerIds.size() > remaining) {
+            throw new ServiceException(ServiceErrorCodeConstants.DRAW_PRIZE_SLOT_NOT_ENOUGH);
+        }
+        return drawnCount;
     }
 
     /**
@@ -376,7 +404,7 @@ public class DrawPrizeServiceImpl implements DrawPrizeService {
             return;
         }
 
-        // 2. 有事务时等提交成功后再清缓存、投递通知，回滚时不产生副作用
+        // 2. 有事务时等提交成功后再重建缓存、投递通知，回滚时不产生副作用
         TransactionSynchronizationManager.registerSynchronization(
                 new TransactionSynchronization() {
                     @Override
@@ -387,14 +415,16 @@ public class DrawPrizeServiceImpl implements DrawPrizeService {
     }
 
     /**
-     * 执行提交后动作：缓存删除和通知投递都按尽力而为处理，不影响抽奖结果。
+     * 执行提交后动作：重建活动详情缓存，并投递中奖通知。
      */
     private void runAfterCommit(Long activityId, List<DrawNotifyMessage> messages) {
-        // 1. 删除活动详情快照，下次查询重新加载最新状态
+        // 1. 抽奖提交后重建最新活动详情快照并写回 Redis，后续访问优先命中缓存
         try {
-            activityCacheService.evictActivityDetail(activityId);
+            activityService.getActivityDetail(activityId, true);
         } catch (RuntimeException e) {
-            log.error("抽奖后删除活动详情缓存失败，activityId: {}", activityId, e);
+            // 重建失败时删除旧快照，避免继续返回过期数据
+            log.error("抽奖后重建活动详情缓存失败，activityId: {}", activityId, e);
+            evictActivityDetailQuietly(activityId);
         }
 
         // 2. 每个中奖人独立投递，单条失败不影响其他通知
@@ -409,13 +439,33 @@ public class DrawPrizeServiceImpl implements DrawPrizeService {
     }
 
     /**
+     * 缓存重建失败时兜底删除，避免 Redis 留下旧快照。
+     */
+    private void evictActivityDetailQuietly(Long activityId) {
+        try {
+            activityCacheService.evictActivityDetail(activityId);
+        } catch (RuntimeException e) {
+            log.error("抽奖后删除活动详情缓存失败，activityId: {}", activityId, e);
+        }
+    }
+
+    /**
      * 组装抽奖结果。
      */
     private DrawPrizeDTO buildDrawPrizeDTO(DrawContext context) {
+        long prizeAmount = context.getActivityPrize() == null
+                || context.getActivityPrize().getPrizeAmount() == null
+                ? 0L : context.getActivityPrize().getPrizeAmount();
+
         DrawPrizeDTO dto = new DrawPrizeDTO();
         dto.setActivityId(context.getActivityId());
         dto.setPrizeId(context.getPrizeId());
         dto.setWinnerCount(context.getWinnerIds().size());
+        dto.setPrizeFinished(context.isPrizeFinished());
+        // 剩余名额 = 奖品数量 - 抽奖前已中奖人数 - 本次中奖人数
+        long remaining = prizeAmount - context.getPrizeDrawnCount()
+                - context.getWinnerIds().size();
+        dto.setRemainingCount((int) Math.max(0, remaining));
         dto.setActivityFinished(context.isActivityFinished());
         return dto;
     }

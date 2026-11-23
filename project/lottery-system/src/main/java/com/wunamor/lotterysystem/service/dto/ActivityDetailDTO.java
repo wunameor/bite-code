@@ -6,6 +6,7 @@ import java.util.List;
 
 /**
  * 活动详情快照：写入 Redis，供抽奖页面读取。
+ * <p>包含奖品状态、剩余候选人员和中奖名单，抽奖后由抽奖服务重建。</p>
  */
 @Data
 public class ActivityDetailDTO {

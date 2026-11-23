@@ -42,7 +42,7 @@ public class ActivityDetailPrizeDTO {
     private boolean valid;
 
     /**
-     * 中奖名单：创建时为空，中奖记录由 /winning-records/show 查询
+     * 中奖名单：来自 winning_record，随活动详情快照一起写入 Redis
      */
     private List<ActivityDetailUserDTO> list;
 }

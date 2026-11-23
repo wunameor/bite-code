@@ -46,4 +46,14 @@ public class DrawContext {
      * 活动是否已经因本次抽奖完成
      */
     private boolean activityFinished;
+
+    /**
+     * 本次抽奖前该奖品已经抽出的中奖人数
+     */
+    private long prizeDrawnCount;
+
+    /**
+     * 该奖品是否已经在中奖人数上抽满；抽满后才把奖品状态翻转为 DRAWN
+     */
+    private boolean prizeFinished;
 }

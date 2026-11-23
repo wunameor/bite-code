@@ -24,6 +24,16 @@ public class DrawStatusDTO {
 
     private List<DrawWinnerDTO> winnerList;
 
+    /**
+     * 当前奖品是否已经抽满
+     */
+    private boolean prizeFinished;
+
+    /**
+     * 当前奖品还剩多少中奖名额
+     */
+    private int prizeRemaining;
+
     private boolean activityFinished;
 
     private Long nextPrizeId;

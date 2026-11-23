@@ -19,7 +19,7 @@ import java.util.concurrent.TimeUnit;
 public class ActivityCacheServiceImpl implements ActivityCacheService {
 
     /**
-     * 进行中活动缓存 24 小时，抽奖后删除 key，TTL 只做兜底
+     * 进行中活动缓存 24 小时；抽奖提交后会重建快照，TTL 只做兜底
      */
     private static final long RUNNING_TTL_SECONDS = 24L * 60 * 60;
 

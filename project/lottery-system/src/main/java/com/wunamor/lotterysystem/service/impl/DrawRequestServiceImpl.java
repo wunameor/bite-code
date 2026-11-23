@@ -10,6 +10,7 @@ import com.wunamor.lotterysystem.common.utils.JacksonUtil;
 import com.wunamor.lotterysystem.mapper.ActivityPrizeMapper;
 import com.wunamor.lotterysystem.mapper.ActivityUserMapper;
 import com.wunamor.lotterysystem.mapper.DrawRequestMapper;
+import com.wunamor.lotterysystem.mapper.WinningRecordMapper;
 import com.wunamor.lotterysystem.mapper.dataobject.ActivityPrizeDO;
 import com.wunamor.lotterysystem.mapper.dataobject.ActivityUserDO;
 import com.wunamor.lotterysystem.mapper.dataobject.DrawRequestDO;
@@ -51,6 +52,7 @@ public class DrawRequestServiceImpl implements DrawRequestService {
     private final DrawPrizeService drawPrizeService;
     private final ActivityPrizeMapper activityPrizeMapper;
     private final ActivityUserMapper activityUserMapper;
+    private final WinningRecordMapper winningRecordMapper;
     private final DrawCompensationProperties compensationProperties;
 
     public DrawRequestServiceImpl(DrawRequestMapper drawRequestMapper,
@@ -58,22 +60,24 @@ public class DrawRequestServiceImpl implements DrawRequestService {
                                   DrawPrizeService drawPrizeService,
                                   ActivityPrizeMapper activityPrizeMapper,
                                   ActivityUserMapper activityUserMapper,
+                                  WinningRecordMapper winningRecordMapper,
                                   DrawCompensationProperties compensationProperties) {
         this.drawRequestMapper = drawRequestMapper;
         this.drawMessageProducer = drawMessageProducer;
         this.drawPrizeService = drawPrizeService;
         this.activityPrizeMapper = activityPrizeMapper;
         this.activityUserMapper = activityUserMapper;
+        this.winningRecordMapper = winningRecordMapper;
         this.compensationProperties = compensationProperties;
     }
 
     @Override
     public DrawRequestDTO submit(DrawPrizeCommand command) {
-        // 1. 只做请求格式校验，数据库状态校验全部交给消费者
+        // 1. 这里只做格式校验，最终抽奖资格和名额仍由消费者在事务内校验
         validateSubmitCommand(command);
 
-        // 2. 同一奖品已有未完成任务时拒绝重复提交，避免页面重进后反复抽奖
-        checkNoUnfinishedDrawRequest(command);
+        // 2. 同一奖品允许多次抽奖，但已中奖和未完成任务的人数不能超过奖品名额
+        checkPrizeCapacity(command);
 
         // 3. 先落任务，再投递消息；投递失败时任务保持 PENDING 等待补偿
         DrawRequestDO request = buildRequestDO(command);
@@ -103,10 +107,11 @@ public class DrawRequestServiceImpl implements DrawRequestService {
         dto.setErrorCode(request.getErrorCode());
         dto.setErrorMessage(request.getErrorMessage());
 
-        // 3. 填充奖品等级和中奖人员
+        // 3. 填充奖品等级、剩余名额和中奖人员
         ActivityPrizeDO activityPrize = findActivityPrize(
                 request.getActivityId(), request.getPrizeId());
         fillPrizeTier(dto, activityPrize);
+        fillPrizeQuota(dto, activityPrize);
         dto.setWinnerList(buildWinnerList(request));
 
         // 4. 填充活动是否结束和下一个待抽奖品
@@ -252,16 +257,45 @@ public class DrawRequestServiceImpl implements DrawRequestService {
     }
 
     /**
-     * 检查同一活动、同一奖品是否已有未完成任务。
+     * 检查奖品剩余名额是否足够本次提交。
      *
-     * <p>抽奖提交是异步任务，页面退出后重新进入时可能再次点击同一个奖品；
-     * 如果已有 PENDING/PROCESSING 任务，再提交会造成重复抽奖或状态死循环。</p>
+     * <p>抽奖改成一次提交一个人后，同一奖品会连续产生多个任务，所以不能再用
+     * “同一奖品有未完成任务就拒绝”的规则。这里把已中奖人数、未完成任务人数
+     * 和本次人数一起计算，提前拦截明显超额提交；最终名额校验仍在抽奖事务里
+     * 通过活动行锁完成。</p>
      *
      * @param command 抽奖命令
      */
-    private void checkNoUnfinishedDrawRequest(DrawPrizeCommand command) {
-        // 只按活动 + 奖品 + 未终态查询，避免把已经 SUCCESS/FAILED 的任务算进去
-        Long processingCount = drawRequestMapper.selectCount(
+    private void checkPrizeCapacity(DrawPrizeCommand command) {
+        // 1. 活动奖品不存在时无法判断名额
+        ActivityPrizeDO activityPrize = findActivityPrize(
+                command.getActivityId(), command.getPrizeId());
+        if (activityPrize == null) {
+            throw new ServiceException(ServiceErrorCodeConstants.DRAW_PRIZE_INVALID);
+        }
+
+        // 2. 剩余名额 = 奖品数量 - 已中奖人数 - 未完成任务占用的人数
+        long prizeAmount = activityPrize.getPrizeAmount() == null
+                ? 0L : activityPrize.getPrizeAmount();
+        long drawnCount = winningRecordMapper.countByActivityIdAndPrizeId(
+                command.getActivityId(), command.getPrizeId());
+        long inFlightCount = countUnfinishedWinners(command);
+
+        // 3. 超出剩余名额时直接拒绝，避免产生注定失败的异步任务
+        if (drawnCount + inFlightCount + command.getWinnerIds().size() > prizeAmount) {
+            throw new ServiceException(
+                    ServiceErrorCodeConstants.DRAW_PRIZE_SLOT_NOT_ENOUGH);
+        }
+    }
+
+    /**
+     * 统计同一活动、同一奖品下未完成任务的已占用名额。
+     *
+     * @param command 抽奖命令
+     * @return 未完成任务中的中奖人数
+     */
+    private long countUnfinishedWinners(DrawPrizeCommand command) {
+        List<DrawRequestDO> tasks = drawRequestMapper.selectList(
                 new LambdaQueryWrapper<DrawRequestDO>()
                         .eq(DrawRequestDO::getActivityId, command.getActivityId())
                         .eq(DrawRequestDO::getPrizeId, command.getPrizeId())
@@ -269,9 +303,11 @@ public class DrawRequestServiceImpl implements DrawRequestService {
                                 DrawRequestStatusEnum.PENDING.getCode(),
                                 DrawRequestStatusEnum.PROCESSING.getCode()));
 
-        if (processingCount != null && processingCount > 0) {
-            throw new ServiceException(ServiceErrorCodeConstants.DRAW_REQUEST_PROCESSING);
+        long total = 0L;
+        for (DrawRequestDO task : tasks) {
+            total += parseWinnerIds(task.getWinnerIds()).size();
         }
+        return total;
     }
 
     private DrawRequestDO buildRequestDO(DrawPrizeCommand command) {
@@ -309,6 +345,24 @@ public class DrawRequestServiceImpl implements DrawRequestService {
         PrizeTierEnum tier = PrizeTierEnum.getByCode(activityPrize.getPrizeTiers());
         dto.setPrizeTierName(tier == null
                 ? activityPrize.getPrizeTiers() : tier.getDesc());
+    }
+
+    /**
+     * 填充当前奖品的剩余名额和是否已经抽满，供前端决定是否进入下一奖品。
+     *
+     * @param dto           状态查询结果
+     * @param activityPrize 活动奖品
+     */
+    private void fillPrizeQuota(DrawStatusDTO dto, ActivityPrizeDO activityPrize) {
+        if (activityPrize == null) {
+            return;
+        }
+        long prizeAmount = activityPrize.getPrizeAmount() == null
+                ? 0L : activityPrize.getPrizeAmount();
+        long drawnCount = winningRecordMapper.countByActivityIdAndPrizeId(
+                activityPrize.getActivityId(), activityPrize.getPrizeId());
+        dto.setPrizeRemaining((int) Math.max(0, prizeAmount - drawnCount));
+        dto.setPrizeFinished(drawnCount >= prizeAmount);
     }
 
     private List<DrawWinnerDTO> buildWinnerList(DrawRequestDO request) {

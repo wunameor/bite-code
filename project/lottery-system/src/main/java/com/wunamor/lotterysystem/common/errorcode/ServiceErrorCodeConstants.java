@@ -77,6 +77,7 @@ public interface ServiceErrorCodeConstants {
     ErrorCode DRAW_REQUEST_NOT_FOUND = new ErrorCode(1055, "抽奖请求不存在");
     ErrorCode DRAW_PRIZE_ORDER_INVALID = new ErrorCode(1056, "抽奖顺序错误，请先抽取当前奖品");
     ErrorCode DRAW_REQUEST_PROCESSING = new ErrorCode(1057, "该奖品正在处理中，请勿重复提交");
+    ErrorCode DRAW_PRIZE_SLOT_NOT_ENOUGH = new ErrorCode(1063, "该奖品剩余中奖名额不足");
 
     // ============ 个人资料错误码 ===========
     ErrorCode PROFILE_INFO_IS_EMPTY = new ErrorCode(1058, "个人资料为空");

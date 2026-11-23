@@ -37,10 +37,10 @@ public final class RedisKeyUtil {
     }
 
     /**
-     * 活动详情快照：lottery:activity:detail:v2:24
-     * v2 用于隔离奖品按等级排序前的旧缓存。
+     * 活动详情快照：lottery:activity:detail:v3:24
+     * v3 用于隔离不含中奖名单的旧缓存。
      */
     public static String activityDetail(Long activityId) {
-        return join("activity", "detail", "v2", String.valueOf(activityId));
+        return join("activity", "detail", "v3", String.valueOf(activityId));
     }
 }

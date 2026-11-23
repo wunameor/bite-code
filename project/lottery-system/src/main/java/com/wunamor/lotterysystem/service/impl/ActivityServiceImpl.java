@@ -13,11 +13,13 @@ import com.wunamor.lotterysystem.mapper.ActivityPrizeMapper;
 import com.wunamor.lotterysystem.mapper.ActivityUserMapper;
 import com.wunamor.lotterysystem.mapper.PrizeMapper;
 import com.wunamor.lotterysystem.mapper.UserMapper;
+import com.wunamor.lotterysystem.mapper.WinningRecordMapper;
 import com.wunamor.lotterysystem.mapper.dataobject.ActivityDO;
 import com.wunamor.lotterysystem.mapper.dataobject.ActivityPrizeDO;
 import com.wunamor.lotterysystem.mapper.dataobject.ActivityUserDO;
 import com.wunamor.lotterysystem.mapper.dataobject.PrizeDO;
 import com.wunamor.lotterysystem.mapper.dataobject.UserDO;
+import com.wunamor.lotterysystem.mapper.dataobject.WinningRecordDO;
 import com.wunamor.lotterysystem.service.ActivityCacheService;
 import com.wunamor.lotterysystem.service.ActivityService;
 import com.wunamor.lotterysystem.service.command.ActivityCreateCommand;
@@ -40,6 +42,7 @@ import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -61,6 +64,7 @@ public class ActivityServiceImpl implements ActivityService {
     private final ActivityUserMapper activityUserMapper;
     private final PrizeMapper prizeMapper;
     private final UserMapper userMapper;
+    private final WinningRecordMapper winningRecordMapper;
     private final ActivityCacheService activityCacheService;
 
     public ActivityServiceImpl(ActivityMapper activityMapper,
@@ -68,12 +72,14 @@ public class ActivityServiceImpl implements ActivityService {
                                ActivityUserMapper activityUserMapper,
                                PrizeMapper prizeMapper,
                                UserMapper userMapper,
+                               WinningRecordMapper winningRecordMapper,
                                ActivityCacheService activityCacheService) {
         this.activityMapper = activityMapper;
         this.activityPrizeMapper = activityPrizeMapper;
         this.activityUserMapper = activityUserMapper;
         this.prizeMapper = prizeMapper;
         this.userMapper = userMapper;
+        this.winningRecordMapper = winningRecordMapper;
         this.activityCacheService = activityCacheService;
     }
 
@@ -191,15 +197,42 @@ public class ActivityServiceImpl implements ActivityService {
                         .eq(ActivityUserDO::getStatus, ActivityUserStatusEnum.PENDING.getCode())
                         .orderByAsc(ActivityUserDO::getId));
 
-        // 5. 组装活动详情快照
+        // 5. 查询中奖记录，按奖品分组写入快照，抽奖后重新进入可以直接展示结果
+        Map<Long, List<ActivityDetailUserDTO>> winnersByPrize =
+                buildWinnersByPrize(winningRecordMapper.listByActivityId(activityId));
+
+        // 6. 组装活动详情快照
         ActivityDetailDTO detail = new ActivityDetailDTO();
         detail.setActivityId(activityDO.getId());
         detail.setActivityName(activityDO.getActivityName());
         detail.setDescription(activityDO.getDescription());
         detail.setValid(ActivityStatusEnum.RUNNING.getCode().equals(activityDO.getStatus()));
-        detail.setPrizes(buildActivityDetailPrizes(activityPrizes, prizeById));
+        detail.setPrizes(buildActivityDetailPrizes(activityPrizes, prizeById, winnersByPrize));
         detail.setUsers(buildActivityDetailUsers(activityUsers));
         return detail;
+    }
+
+    /**
+     * 把中奖记录按奖品分组，奖品 id 相同的记录保持中奖时间顺序。
+     *
+     * @param records 活动的中奖记录
+     * @return prizeId -> 中奖人员列表
+     */
+    private Map<Long, List<ActivityDetailUserDTO>> buildWinnersByPrize(
+            List<WinningRecordDO> records) {
+        Map<Long, List<ActivityDetailUserDTO>> winnersByPrize = new HashMap<>();
+        if (records == null || records.isEmpty()) {
+            return winnersByPrize;
+        }
+
+        for (WinningRecordDO record : records) {
+            ActivityDetailUserDTO winner = new ActivityDetailUserDTO();
+            winner.setUserId(record.getWinnerId());
+            winner.setUserName(record.getWinnerName());
+            winnersByPrize.computeIfAbsent(record.getPrizeId(), key -> new ArrayList<>())
+                    .add(winner);
+        }
+        return winnersByPrize;
     }
 
     /**
@@ -242,7 +275,9 @@ public class ActivityServiceImpl implements ActivityService {
      * 按已排序的活动奖品顺序组装奖品快照。
      */
     private List<ActivityDetailPrizeDTO> buildActivityDetailPrizes(
-            List<ActivityPrizeDO> activityPrizes, Map<Long, PrizeDO> prizeById) {
+            List<ActivityPrizeDO> activityPrizes,
+            Map<Long, PrizeDO> prizeById,
+            Map<Long, List<ActivityDetailUserDTO>> winnersByPrize) {
         // 1. 逐个关联奖品主表数据，保持一等奖、二等奖、三等奖的顺序
         List<ActivityDetailPrizeDTO> prizes = new ArrayList<>(activityPrizes.size());
         for (ActivityPrizeDO activityPrize : activityPrizes) {
@@ -250,16 +285,18 @@ public class ActivityServiceImpl implements ActivityService {
             if (prizeDO == null) {
                 throw new ServiceException(ServiceErrorCodeConstants.ACTIVITY_PRIZE_INVALID);
             }
-            prizes.add(buildActivityDetailPrize(activityPrize, prizeDO));
+            prizes.add(buildActivityDetailPrize(activityPrize, prizeDO,
+                    winnersByPrize.get(activityPrize.getPrizeId())));
         }
         return prizes;
     }
 
     /**
-     * 单个活动奖品快照：状态决定是否还能抽取。
+     * 单个活动奖品快照：状态决定是否还能抽取，中奖名单来自中奖记录。
      */
     private ActivityDetailPrizeDTO buildActivityDetailPrize(ActivityPrizeDO activityPrize,
-                                                            PrizeDO prizeDO) {
+                                                            PrizeDO prizeDO,
+                                                            List<ActivityDetailUserDTO> winners) {
         // 1. 填充奖品基本信息
         ActivityDetailPrizeDTO detail = new ActivityDetailPrizeDTO();
         detail.setPrizeId(prizeDO.getId());
@@ -275,10 +312,10 @@ public class ActivityServiceImpl implements ActivityService {
         detail.setPrizeTierName(prizeTier == null
                 ? activityPrize.getPrizeTiers() : prizeTier.getDesc());
 
-        // 3. 只有待抽取奖品还能继续抽，中奖名单由中奖记录接口查询
+        // 3. 奖品是否还能抽由状态决定，已中奖名单随快照一起缓存
         detail.setValid(ActivityPrizeStatusEnum.PENDING.getCode()
                 .equals(activityPrize.getStatus()));
-        detail.setList(List.of());
+        detail.setList(winners == null ? List.of() : winners);
         return detail;
     }
 

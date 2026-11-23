@@ -118,7 +118,7 @@ create TABLE `winning_record`  (
   `winning_time` datetime NOT NULL comment '中奖时间',
   PRIMARY KEY (`id`) USING BTREE,
   UNIQUE INDEX `uk_id`(`id` ASC) USING BTREE,
-  UNIQUE INDEX `uk_w_a_p_id`(`winner_id` ASC, `activity_id` ASC, `prize_id` ASC) USING BTREE,
+  UNIQUE INDEX `uk_w_a_id`(`winner_id` ASC, `activity_id` ASC) USING BTREE,
   INDEX `idx_activity_id`(`activity_id` ASC) USING BTREE
 ) ENGINE = InnoDB AUTO_INCREMENT = 69 CHARACTER SET = utf8mb3 COLLATE = utf8mb3_general_ci ROW_FORMAT = DYNAMIC;
 

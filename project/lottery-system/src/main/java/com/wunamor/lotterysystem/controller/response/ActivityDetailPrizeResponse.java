@@ -39,7 +39,7 @@ public class ActivityDetailPrizeResponse {
     private boolean valid;
 
     /**
-     * 中奖名单：详情接口固定为空，中奖记录由 /winning-records/show 查询
+     * 中奖名单：来自中奖记录，随活动详情快照一起返回
      */
     private List<ActivityDetailUserResponse> list;
 }
