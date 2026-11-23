@@ -170,7 +170,7 @@ src/main/resources
     ├── create-prizes.html             # 创建奖品页
     ├── activities-list.html           # 活动列表页
     ├── create-activity.html           # 创建活动页
-    ├── draw.html                      # 抽奖页、异步任务轮询页、中奖展示页
+    ├── draw.html                      # 抽奖页：两次点击抽一人、500ms 防连点、异步任务轮询、中奖展示
     ├── profile.html                   # 当前登录用户个人信息编辑页
     ├── forgot-password.html           # 忘记密码页，通过邮箱验证码重置密码
     ├── css                            # 页面样式目录
@@ -248,7 +248,7 @@ common/config
 - `UploadProperties` 负责上传目录、访问前缀、文件大小和扩展名限制。
 - `WebConfig` 负责：
   - 注册 `LoginInterceptor`。
-  - 放行登录、验证码、静态资源等公开路径。
+  - 放行登录、验证码、静态资源、中奖名单分享链接等公开路径。
   - 把 `/uploads/**` 映射到本地 `uploads/` 目录。
 
 ### 8.2 `common/constants`
@@ -357,6 +357,7 @@ common/interceptor
 /user/login
 /user/email-code
 /user/reset-password
+/winning-records/show
 /*.html
 /css/**
 /js/**
@@ -388,7 +389,7 @@ common/utils
 ├── JacksonUtil.java                   # JSON 序列化和反序列化
 ├── JWTUtil.java                       # JWT 生成和解析
 ├── MailUtil.java                      # 邮件发送工具，只负责发送，不承载业务
-├── RedisKeyUtil.java                  # Redis key 统一生成
+├── RedisKeyUtil.java                  # Redis key 统一生成；活动详情 key 为 lottery:activity:detail:v3:{id}
 ├── RedisUtil.java                     # Redis 操作封装
 └── RegexUtil.java                     # 正则工具
 ```
@@ -537,7 +538,7 @@ GET  /prize/list                       # 管理员分页查询奖品
 ```text
 POST /activity/create                  # 管理员创建活动，圈选奖品和人员
 GET  /activity/list                    # 管理员分页查询活动
-GET  /activity/detail                  # 管理员查询活动详情，抽奖页可传 fresh=true 跳过缓存
+GET  /activity/detail                  # 管理员查询活动详情；默认优先读 Redis，fresh=true 强制回源数据库
 ```
 
 #### `DrawPrizeController.java`
@@ -564,7 +565,7 @@ GET  /draw-prize/status                # 管理员轮询抽奖任务状态
 接口：
 
 ```text
-POST /winning-records/show             # 登录用户按 activityId 查询中奖记录，可选 prizeId
+POST /winning-records/show             # 公开分享接口：按 activityId 查询中奖记录，可选 prizeId
 ```
 
 #### `FileController.java`
@@ -708,13 +709,13 @@ service/command
 ```text
 service/dto
 ├── ActivityCreateDTO.java             # 创建活动结果
-├── ActivityDetailDTO.java             # 活动详情快照，可写入 Redis
-├── ActivityDetailPrizeDTO.java        # 活动详情中的奖品快照
+├── ActivityDetailDTO.java             # 活动详情快照，可写入 Redis，包含奖品、候选人和中奖名单
+├── ActivityDetailPrizeDTO.java        # 活动详情中的奖品快照，list 为中奖名单
 ├── ActivityDetailUserDTO.java         # 活动详情中的参与人快照
 ├── ActivityListDTO.java               # 活动列表项
-├── DrawPrizeDTO.java                  # 抽奖事务结果
+├── DrawPrizeDTO.java                  # 抽奖事务结果：中奖人数、奖品是否抽满、剩余名额
 ├── DrawRequestDTO.java                # 抽奖任务提交结果
-├── DrawStatusDTO.java                 # 抽奖任务状态查询结果
+├── DrawStatusDTO.java                 # 抽奖任务状态查询结果，包含奖品剩余名额和是否抽满
 ├── DrawWinnerDTO.java                 # 中奖人员结果项
 ├── FileUploadDTO.java                 # 文件上传结果
 ├── PrizeCreateDTO.java                # 创建奖品结果
@@ -741,8 +742,8 @@ service/enums
 ```text
 service/impl
 ├── ActivityCacheServiceImpl.java      # 活动详情 Redis 快照缓存实现
-├── ActivityServiceImpl.java           # 活动创建、列表、详情
-├── DrawPrizeServiceImpl.java          # 抽奖事务：校验、锁定活动、状态更新、提交后通知
+├── ActivityServiceImpl.java           # 活动创建、列表、详情；详情快照包含各奖品中奖名单
+├── DrawPrizeServiceImpl.java          # 抽奖事务：校验、锁定活动、状态更新、重建缓存、提交后通知
 ├── DrawRequestServiceImpl.java        # 抽奖任务提交、状态查询、命令编排、补偿扫描
 ├── EmailCodeServiceImpl.java          # 邮箱验证码生成、发送、校验
 ├── FileServiceImpl.java               # 本地图片上传、删除
@@ -768,7 +769,7 @@ service/draw/state
     ├── ActivityUserNotWonUpdater.java     # 活动结束时，把剩余 PENDING 人员标记为 NOT_WON
     ├── ActivityUserWinnerUpdater.java     # 把中奖人员从 PENDING 更新为 WINNER
     ├── DrawRequestSuccessUpdater.java     # 把 draw_request 从 PROCESSING 更新为 SUCCESS，并保存中奖快照
-    ├── PrizeDrawnUpdater.java             # 把 activity_prize 从 PENDING 更新为 DRAWN
+    ├── PrizeDrawnUpdater.java             # 统计奖品已中奖人数，抽满后才把 activity_prize 从 PENDING 更新为 DRAWN
     └── WinningRecordUpdater.java          # 批量写入 winning_record
 ```
 
@@ -784,7 +785,7 @@ DrawStateUpdaterChain 负责事务内的状态更新步骤排序和执行。
 
 ```text
 RECORD        -> 写中奖记录
-PRIZE         -> 更新活动奖品状态
+PRIZE         -> 统计已中奖人数；抽满后才更新活动奖品状态
 ACTIVITY_USER -> 更新活动人员状态
 ACTIVITY      -> 判断并更新活动状态；活动结束时收尾未中奖人员
 DRAW_REQUEST  -> 更新抽奖任务状态
@@ -1110,10 +1111,18 @@ draw.html
 `DrawRequestService.submit()` 负责：
 
 - 做基础请求格式校验。
-- 检查同一活动、同一奖品是否已有 `PENDING` / `PROCESSING` 任务。
+- 检查奖品剩余名额：已中奖人数 + 未完成任务占用人数 + 本次人数不能超过奖品数量。
+- 同一奖品允许连续提交多个单人中奖任务，不再因为存在未完成任务就拒绝。
 - 写 `draw_request(PENDING)`。
 - 投递抽奖命令消息到 RabbitMQ。
 - 返回 `requestId` 给前端。
+
+抽奖页交互：
+
+- 第一次点击只开始滚动，不创建任务；第二次点击才提交一个中奖人。
+- 两次有效点击至少间隔 500ms；请求在途期间按钮保持禁用，避免并发。
+- 奖品没抽满前停留在当前奖品，抽满后才允许进入下一奖品。
+- 活动详情默认优先读 Redis；只有状态异常需要恢复时才传 `fresh=true` 回源数据库。
 
 ### 15.2 MQ 命令消费
 
@@ -1144,13 +1153,20 @@ DrawPrizeService.drawPrize()
   → 锁定活动
   → 校验奖品
   → 校验奖品顺序
-  → 校验中奖人数
+  → 校验剩余中奖名额（已中奖人数 + 本次人数 <= 奖品数量）
   → 校验活动人员状态
   → 校验用户联系方式
   → 构建 DrawContext
   → DrawStateUpdaterChain.update()
   → 注册事务提交后动作
 ```
+
+抽奖按人中奖：
+
+- `drawPrize()` 允许一次只写一个中奖人，不再要求本次人数等于奖品数量。
+- `PrizeDrawnUpdater` 写记录后统计该奖品已中奖人数：未满时奖品保持 `PENDING`，抽满时才更新为 `DRAWN`。
+- `DrawPrizeDTO` 返回 `prizeFinished` 和 `remainingCount`，前端据此决定是否继续当前奖品。
+- `(winner_id, activity_id)` 唯一键保证一个用户在一个活动内最多中一个奖。
 
 状态更新链：
 
@@ -1163,11 +1179,12 @@ ACTIVITY      ActivityUserNotWonUpdater      (order 10)
 DRAW_REQUEST  DrawRequestSuccessUpdater
 ```
 
-### 15.4 提交后通知
+### 15.4 提交后缓存重建和通知
 
 ```text
 DrawPrizeServiceImpl.afterCommit()
-  → ActivityCacheService.evictActivityDetail()
+  → ActivityService.getActivityDetail(activityId, true)
+  → 重建活动详情快照并写回 Redis（key: lottery:activity:detail:v3:{id}）
   → DrawMessageProducer.sendNotify()
   → RabbitMQ notify queue
   → DrawNotifyListener
@@ -1176,7 +1193,9 @@ DrawPrizeServiceImpl.afterCommit()
 
 设计原因：
 
-- 缓存删除和邮件通知不能导致抽奖事务回滚。
+- 抽奖提交后重建快照，后续查询继续优先命中 Redis，并且能看到最新中奖名单。
+- 快照重建失败时兜底删除旧 key，避免返回过期数据。
+- 缓存重建和邮件通知不能导致抽奖事务回滚。
 - 邮件发送失败不影响抽奖结果。
 - 通知消息在抽奖事务提交后投递。
 

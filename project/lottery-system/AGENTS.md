@@ -247,12 +247,18 @@ service/impl/DrawPrizeServiceImpl.java
 - 锁定活动行。
 - 校验活动和奖品状态。
 - 校验奖品顺序。
-- 校验中奖人数。
+- 校验本次中奖人数不超过奖品剩余名额。
 - 校验活动人员状态和联系方式。
 - 构建 `DrawContext`。
 - 调用 `DrawStateUpdaterChain.update()`。
-- 注册事务提交后动作。
-- 返回抽奖结果。
+- 注册事务提交后动作：重建活动详情缓存、投递中奖通知。
+- 返回抽奖结果（含奖品是否抽满、剩余名额）。
+
+抽奖按人中奖：
+
+- 一次请求可以只抽一个人，`drawn + requested <= prizeAmount` 即可。
+- 奖品在中奖人数未满前保持 `PENDING`，抽满后才翻转为 `DRAWN`。
+- 前端第一次点击只开始滚动，不提交请求；第二次点击才提交一个中奖人，两次有效点击至少间隔 500ms。
 
 事务边界：
 
@@ -279,7 +285,7 @@ state/impl 放具体状态更新实现。
 
 ```text
 RECORD        写中奖记录
-PRIZE         更新活动奖品状态
+PRIZE         统计奖品已中奖人数；抽满后才更新活动奖品状态
 ACTIVITY_USER 更新活动人员状态
 ACTIVITY      判断并更新活动状态；活动结束时收尾未中奖人员
 DRAW_REQUEST  更新抽奖异步任务状态
@@ -302,7 +308,7 @@ void execute(DrawContext context);
 - 状态更新器只做事务内状态落库。
 - 状态更新器不要做资格校验。
 - 状态更新器不要发送 MQ。
-- 状态更新器不要清缓存。
+- 状态更新器不要清缓存或重建缓存。
 - 状态更新器不要 catch 异常后继续执行后续状态。
 - 状态更新失败必须抛出，让抽奖事务整体回滚。
 
@@ -317,7 +323,7 @@ service/impl/DrawRequestServiceImpl.java
 
 负责：
 
-- `submit()`：校验请求格式、拒绝同奖品未完成任务、写 `draw_request(PENDING)`、投递命令消息。
+- `submit()`：校验请求格式、检查奖品剩余名额（已中奖 + 未完成任务 + 本次）、写 `draw_request(PENDING)`、投递命令消息。
 - `getStatus()`：查询任务状态和结果。
 - `handleCommand()`：消费命令时抢占任务、调用抽奖事务、处理业务失败。
 - `markProcessing()`：`PENDING -> PROCESSING`。
@@ -405,6 +411,7 @@ user_token
 /user/login
 /user/email-code
 /user/reset-password
+/winning-records/show    # 中奖名单分享链接，公开只读
 静态资源
 ```
 

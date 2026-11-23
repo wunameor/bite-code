@@ -250,6 +250,7 @@ PUT  /user/profile
 
 - `/user/login`、`/user/email-code` 和 `/user/reset-password` 是公开接口。
 - `/user/reset-password` 使用 `RESET_PASSWORD` 场景的邮箱验证码。
+- `/winning-records/show` 也是公开接口，用于中奖名单分享链接，只读且无需登录。
 - `/user/register` 和 `/user/list` 仅管理员可访问。
 - `/user/profile` 查询和修改当前登录用户资料，登录用户即可访问。
 - `/user/profile` 返回的邮箱和手机号是脱敏值；前端提交空值或带 `*` 的值表示不修改。
@@ -277,7 +278,9 @@ GET  /activity/detail
 说明：
 
 - 活动接口仅管理员可访问。
-- 抽奖页查询详情时传 `fresh=true`，跳过旧缓存读取最新奖品状态。
+- `/activity/detail` 默认优先读取 Redis 中的活动详情快照。
+- 抽奖页正常打开不传 `fresh`；只有前端状态异常、需要恢复时才传 `fresh=true` 回源数据库。
+- 抽奖提交后会重建活动详情快照并写回 Redis，后续查询继续命中缓存。
 
 ### 抽奖接口
 
@@ -289,18 +292,22 @@ GET  /draw-prize/status?requestId=xxx
 抽奖流程：
 
 ```text
-1. 前端提交抽奖请求。
-2. 后端校验同一奖品是否已有 PENDING/PROCESSING 任务。
-3. 后端写 draw_request(PENDING)，返回 requestId。
-4. 后端发送抽奖命令消息到 RabbitMQ。
-5. MQ 消费者执行抽奖事务。
-6. 前端拿到 requestId 后可进入下一轮，后台继续轮询 /draw-prize/status 获取最终结果。
+1. 前端第一次点击只开始滚动，不提交抽奖请求。
+2. 前端第二次点击停止滚动，当前显示的人作为中奖人提交。
+3. 后端检查奖品剩余名额：已中奖人数 + 未完成任务人数 + 本次人数 <= 奖品数量。
+4. 后端写 draw_request(PENDING)，返回 requestId。
+5. 后端发送抽奖命令消息到 RabbitMQ。
+6. MQ 消费者执行抽奖事务。
+7. 前端轮询 /draw-prize/status，确认后再继续下一次。
 ```
 
 抽奖约束：
 
 - 一等奖、二等奖、三等奖必须按顺序抽取。
 - 一个用户在一个活动内最多中一个奖品。
+- 同一奖品支持分多次抽取，每次抽一个人；奖品未抽满前保持 `PENDING`。
+- 两次有效点击至少间隔 500ms；请求在途期间按钮保持禁用，避免并发任务。
+- 抽奖页字号和奖品图按原设计的约 67% 展示，中奖名单一行一个人名。
 
 ### 中奖记录接口
 
@@ -310,7 +317,7 @@ POST /winning-records/show
 
 说明：
 
-- 需要登录。
+- 公开接口，用于中奖名单分享链接，不要求登录；只读查询。
 - 可按 `activityId` 查询，可选 `prizeId`。
 
 ## 测试命令
