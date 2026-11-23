@@ -51,6 +51,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -68,6 +69,7 @@ class DrawPrizeServiceImplTest {
     private WinningRecordMapper winningRecordMapper;
     private DrawRequestMapper drawRequestMapper;
     private ActivityCacheService activityCacheService;
+    private ActivityService activityService;
     private DrawMessageProducer drawMessageProducer;
     private DrawPrizeServiceImpl drawPrizeService;
 
@@ -91,17 +93,18 @@ class DrawPrizeServiceImplTest {
         winningRecordMapper = mock(WinningRecordMapper.class);
         drawRequestMapper = mock(DrawRequestMapper.class);
         activityCacheService = mock(ActivityCacheService.class);
+        activityService = mock(ActivityService.class);
         drawMessageProducer = mock(DrawMessageProducer.class);
         DrawStateUpdaterChain updaterChain = new DrawStateUpdaterChain(List.of(
                 new WinningRecordUpdater(winningRecordMapper),
-                new PrizeDrawnUpdater(activityPrizeMapper),
+                new PrizeDrawnUpdater(activityPrizeMapper, winningRecordMapper),
                 new ActivityUserWinnerUpdater(activityUserMapper),
                 new ActivityFinishedUpdater(activityMapper, activityPrizeMapper),
                 new ActivityUserNotWonUpdater(activityUserMapper),
                 new DrawRequestSuccessUpdater(drawRequestMapper)));
         drawPrizeService = new DrawPrizeServiceImpl(activityMapper, activityPrizeMapper,
                 activityUserMapper, prizeMapper, userMapper, activityCacheService,
-                drawMessageProducer, updaterChain);
+                activityService, winningRecordMapper, drawMessageProducer, updaterChain);
     }
 
     @Test
@@ -114,6 +117,8 @@ class DrawPrizeServiceImplTest {
         assertEquals(100L, result.getActivityId());
         assertEquals(10L, result.getPrizeId());
         assertEquals(2, result.getWinnerCount());
+        assertTrue(result.isPrizeFinished());
+        assertEquals(0, result.getRemainingCount());
         assertTrue(result.isActivityFinished());
 
         ArgumentCaptor<List<WinningRecordDO>> captor = ArgumentCaptor.forClass(List.class);
@@ -132,7 +137,8 @@ class DrawPrizeServiceImplTest {
         // 一次把中奖人员更新为 WINNER，一次把剩余人员收尾为 NOT_WON
         verify(activityUserMapper, times(2)).update(any(), any());
         verify(activityMapper).update(any(), any());
-        verify(activityCacheService).evictActivityDetail(100L);
+        // 抽奖提交后重建活动详情快照，而不是只删除缓存
+        verify(activityService).getActivityDetail(100L, true);
 
         ArgumentCaptor<DrawNotifyMessage> messageCaptor =
                 ArgumentCaptor.forClass(DrawNotifyMessage.class);
@@ -175,13 +181,13 @@ class DrawPrizeServiceImplTest {
         try {
             drawPrizeService.drawPrize(validCommand());
 
-            verify(activityCacheService, never()).evictActivityDetail(any());
+            verify(activityService, never()).getActivityDetail(any(), anyBoolean());
             verify(drawMessageProducer, never()).sendNotify(any());
 
             TransactionSynchronizationManager.getSynchronizations()
                     .forEach(TransactionSynchronization::afterCommit);
 
-            verify(activityCacheService).evictActivityDetail(100L);
+            verify(activityService).getActivityDetail(100L, true);
             verify(drawMessageProducer, times(2)).sendNotify(any());
         } finally {
             TransactionSynchronizationManager.clearSynchronization();
@@ -240,12 +246,12 @@ class DrawPrizeServiceImplTest {
     }
 
     @Test
-    void drawPrizeThrowsWhenWinnerCountMismatch() {
+    void drawPrizeThrowsWhenWinnerCountExceedsRemaining() {
         when(activityMapper.selectByIdForUpdate(100L))
                 .thenReturn(activityDO(100L, "年会抽奖",
                         ActivityStatusEnum.RUNNING.getCode()));
         ActivityPrizeDO activityPrize = activityPrizeDO(
-                1L, 10L, 3L, PrizeTierEnum.FIRST_PRIZE,
+                1L, 10L, 1L, PrizeTierEnum.FIRST_PRIZE,
                 ActivityPrizeStatusEnum.PENDING);
         when(activityPrizeMapper.selectOne(any())).thenReturn(activityPrize);
         when(activityPrizeMapper.selectList(any())).thenReturn(List.of(activityPrize));
@@ -254,7 +260,7 @@ class DrawPrizeServiceImplTest {
         ServiceException e = assertThrows(ServiceException.class,
                 () -> drawPrizeService.drawPrize(validCommand()));
 
-        assertEquals(1050, e.getCode());
+        assertEquals(1063, e.getCode());
     }
 
     @Test
@@ -326,13 +332,15 @@ class DrawPrizeServiceImplTest {
     void drawPrizeIgnoresCacheAndNotifyFailure() {
         stubSuccessfulDraw();
         doThrow(new RuntimeException("redis down"))
-                .when(activityCacheService).evictActivityDetail(100L);
+                .when(activityService).getActivityDetail(100L, true);
         doThrow(new RuntimeException("mq down"))
                 .when(drawMessageProducer).sendNotify(any());
 
         DrawPrizeDTO result = drawPrizeService.drawPrize(validCommand());
 
         assertEquals(2, result.getWinnerCount());
+        // 重建失败时兜底删除旧快照
+        verify(activityCacheService).evictActivityDetail(100L);
     }
 
     @Test
@@ -377,6 +385,41 @@ class DrawPrizeServiceImplTest {
                 () -> drawPrizeService.drawPrize(validCommand()));
 
         assertEquals(1054, e.getCode());
+    }
+
+    @Test
+    void drawPrizeKeepsPrizePendingWhenNotFull() {
+        when(activityMapper.selectByIdForUpdate(100L))
+                .thenReturn(activityDO(100L, "年会抽奖",
+                        ActivityStatusEnum.RUNNING.getCode()));
+        ActivityPrizeDO activityPrize = activityPrizeDO(
+                1L, 10L, 2L, PrizeTierEnum.FIRST_PRIZE,
+                ActivityPrizeStatusEnum.PENDING);
+        when(activityPrizeMapper.selectOne(any())).thenReturn(activityPrize);
+        when(activityPrizeMapper.selectList(any())).thenReturn(List.of(activityPrize));
+        when(prizeMapper.selectById(10L)).thenReturn(prizeDO(10L, "手机"));
+        when(activityUserMapper.selectList(any())).thenReturn(List.of(
+                activityUserDO(1L, 1L, "张三")));
+        when(userMapper.selectBatchIds(any())).thenReturn(List.of(
+                userDO(1L, "张三", "zhangsan@test.com", "13800000001")));
+        when(winningRecordMapper.insertBatch(any())).thenReturn(1);
+        when(winningRecordMapper.countByActivityIdAndPrizeId(100L, 10L))
+                .thenReturn(0L, 1L);
+        when(activityUserMapper.update(any(), any())).thenReturn(1);
+        when(activityPrizeMapper.selectCount(any())).thenReturn(1L);
+        when(drawRequestMapper.update(any(), any())).thenReturn(1);
+
+        DrawPrizeCommand command = validCommand();
+        command.setWinnerIds(List.of(1L));
+
+        DrawPrizeDTO result = drawPrizeService.drawPrize(command);
+
+        assertEquals(1, result.getWinnerCount());
+        assertFalse(result.isPrizeFinished());
+        assertEquals(1, result.getRemainingCount());
+        assertFalse(result.isActivityFinished());
+        // 没抽满时奖品保持 PENDING，不更新活动奖品状态
+        verify(activityPrizeMapper, never()).update(any(), any());
     }
 
     @Test
@@ -436,6 +479,9 @@ class DrawPrizeServiceImplTest {
                 userDO(1L, "张三", "zhangsan@test.com", "13800000001"),
                 userDO(2L, "李四", "lisi@test.com", "13800000002")));
         when(winningRecordMapper.insertBatch(any())).thenReturn(2);
+        // 第一次是抽奖前统计已中奖人数，第二次是写记录后统计是否抽满
+        when(winningRecordMapper.countByActivityIdAndPrizeId(100L, 10L))
+                .thenReturn(0L, 2L);
         when(activityPrizeMapper.update(any(), any())).thenReturn(1);
         when(activityUserMapper.update(any(), any())).thenReturn(2);
         when(activityPrizeMapper.selectCount(any())).thenReturn(0L);

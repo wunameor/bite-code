@@ -10,11 +10,13 @@ import com.wunamor.lotterysystem.mapper.ActivityPrizeMapper;
 import com.wunamor.lotterysystem.mapper.ActivityUserMapper;
 import com.wunamor.lotterysystem.mapper.PrizeMapper;
 import com.wunamor.lotterysystem.mapper.UserMapper;
+import com.wunamor.lotterysystem.mapper.WinningRecordMapper;
 import com.wunamor.lotterysystem.mapper.dataobject.ActivityDO;
 import com.wunamor.lotterysystem.mapper.dataobject.ActivityPrizeDO;
 import com.wunamor.lotterysystem.mapper.dataobject.ActivityUserDO;
 import com.wunamor.lotterysystem.mapper.dataobject.PrizeDO;
 import com.wunamor.lotterysystem.mapper.dataobject.UserDO;
+import com.wunamor.lotterysystem.mapper.dataobject.WinningRecordDO;
 import com.wunamor.lotterysystem.service.ActivityCacheService;
 import com.wunamor.lotterysystem.service.command.ActivityCreateCommand;
 import com.wunamor.lotterysystem.service.command.ActivityListCommand;
@@ -53,6 +55,7 @@ class ActivityServiceImplTest {
     private ActivityUserMapper activityUserMapper;
     private PrizeMapper prizeMapper;
     private UserMapper userMapper;
+    private WinningRecordMapper winningRecordMapper;
     private ActivityCacheService activityCacheService;
     private ActivityServiceImpl activityService;
 
@@ -63,9 +66,11 @@ class ActivityServiceImplTest {
         activityUserMapper = mock(ActivityUserMapper.class);
         prizeMapper = mock(PrizeMapper.class);
         userMapper = mock(UserMapper.class);
+        winningRecordMapper = mock(WinningRecordMapper.class);
         activityCacheService = mock(ActivityCacheService.class);
         activityService = new ActivityServiceImpl(activityMapper, activityPrizeMapper,
-                activityUserMapper, prizeMapper, userMapper, activityCacheService);
+                activityUserMapper, prizeMapper, userMapper, winningRecordMapper,
+                activityCacheService);
     }
 
     @Test
@@ -385,6 +390,8 @@ class ActivityServiceImplTest {
         when(activityUserMapper.selectList(any())).thenReturn(List.of(
                 activityUserDO(1L, 1L, "张三"),
                 activityUserDO(2L, 2L, "李四")));
+        when(winningRecordMapper.listByActivityId(100L)).thenReturn(List.of(
+                winningRecordDO(11L, 2L, "李四")));
 
         ActivityDetailDTO detail = activityService.getActivityDetail(100L);
 
@@ -394,8 +401,10 @@ class ActivityServiceImplTest {
         assertTrue(detail.getPrizes().get(0).isValid());
         assertEquals(PrizeTierEnum.FIRST_PRIZE.getDesc(),
                 detail.getPrizes().get(0).getPrizeTierName());
+        assertTrue(detail.getPrizes().get(0).getList().isEmpty());
         assertFalse(detail.getPrizes().get(1).isValid());
-        assertTrue(detail.getPrizes().get(1).getList().isEmpty());
+        assertEquals(1, detail.getPrizes().get(1).getList().size());
+        assertEquals("李四", detail.getPrizes().get(1).getList().get(0).getUserName());
         assertEquals(2, detail.getUsers().size());
         assertEquals("张三", detail.getUsers().get(0).getUserName());
         verify(activityCacheService).cacheActivityDetail(detail);
@@ -551,5 +560,14 @@ class ActivityServiceImplTest {
         activityUserDO.setUserName(userName);
         activityUserDO.setStatus(ActivityUserStatusEnum.PENDING.getCode());
         return activityUserDO;
+    }
+
+    private WinningRecordDO winningRecordDO(Long prizeId, Long winnerId, String winnerName) {
+        WinningRecordDO record = new WinningRecordDO();
+        record.setActivityId(100L);
+        record.setPrizeId(prizeId);
+        record.setWinnerId(winnerId);
+        record.setWinnerName(winnerName);
+        return record;
     }
 }

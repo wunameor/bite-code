@@ -27,7 +27,7 @@ import static org.mockito.Mockito.when;
 
 class ActivityCacheServiceImplTest {
 
-    private static final String DETAIL_KEY = "lottery:activity:detail:v2:100";
+    private static final String DETAIL_KEY = "lottery:activity:detail:v3:100";
 
     private RedisUtil redisUtil;
     private ActivityCacheServiceImpl activityCacheService;

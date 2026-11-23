@@ -9,6 +9,7 @@ import com.wunamor.lotterysystem.common.exception.ServiceException;
 import com.wunamor.lotterysystem.mapper.ActivityPrizeMapper;
 import com.wunamor.lotterysystem.mapper.ActivityUserMapper;
 import com.wunamor.lotterysystem.mapper.DrawRequestMapper;
+import com.wunamor.lotterysystem.mapper.WinningRecordMapper;
 import com.wunamor.lotterysystem.mapper.dataobject.ActivityPrizeDO;
 import com.wunamor.lotterysystem.mapper.dataobject.ActivityUserDO;
 import com.wunamor.lotterysystem.mapper.dataobject.DrawRequestDO;
@@ -55,6 +56,7 @@ class DrawRequestServiceImplTest {
     private DrawPrizeService drawPrizeService;
     private ActivityPrizeMapper activityPrizeMapper;
     private ActivityUserMapper activityUserMapper;
+    private WinningRecordMapper winningRecordMapper;
     private DrawCompensationProperties compensationProperties;
     private DrawRequestServiceImpl service;
 
@@ -74,14 +76,18 @@ class DrawRequestServiceImplTest {
         drawPrizeService = mock(DrawPrizeService.class);
         activityPrizeMapper = mock(ActivityPrizeMapper.class);
         activityUserMapper = mock(ActivityUserMapper.class);
+        winningRecordMapper = mock(WinningRecordMapper.class);
         compensationProperties = mock(DrawCompensationProperties.class);
         service = new DrawRequestServiceImpl(drawRequestMapper, drawMessageProducer,
                 drawPrizeService, activityPrizeMapper, activityUserMapper,
-                compensationProperties);
+                winningRecordMapper, compensationProperties);
     }
 
     @Test
     void submitInsertsPendingTaskAndPublishesMessage() {
+        when(activityPrizeMapper.selectOne(any())).thenReturn(
+                activityPrize(10L, PrizeTierEnum.FIRST_PRIZE,
+                        ActivityPrizeStatusEnum.PENDING));
         when(drawRequestMapper.insert(any(DrawRequestDO.class))).thenAnswer(invocation -> {
             DrawRequestDO request = invocation.getArgument(0);
             request.setId(99L);
@@ -101,6 +107,9 @@ class DrawRequestServiceImplTest {
 
     @Test
     void submitKeepsTaskPendingWhenPublishFails() {
+        when(activityPrizeMapper.selectOne(any())).thenReturn(
+                activityPrize(10L, PrizeTierEnum.FIRST_PRIZE,
+                        ActivityPrizeStatusEnum.PENDING));
         when(drawRequestMapper.insert(any(DrawRequestDO.class))).thenAnswer(invocation -> {
             DrawRequestDO request = invocation.getArgument(0);
             request.setId(99L);
@@ -116,15 +125,44 @@ class DrawRequestServiceImplTest {
     }
 
     @Test
-    void submitRejectsSamePrizeWhenUnfinishedTaskExists() {
-        when(drawRequestMapper.selectCount(any())).thenReturn(1L);
+    void submitRejectsWhenPrizeCapacityIsExhausted() {
+        ActivityPrizeDO prize = activityPrize(10L, PrizeTierEnum.FIRST_PRIZE,
+                ActivityPrizeStatusEnum.PENDING);
+        prize.setPrizeAmount(2L);
+        when(activityPrizeMapper.selectOne(any())).thenReturn(prize);
+        when(winningRecordMapper.countByActivityIdAndPrizeId(100L, 10L))
+                .thenReturn(2L);
+        when(drawRequestMapper.selectList(any())).thenReturn(List.of());
 
         ServiceException e = assertThrows(ServiceException.class,
                 () -> service.submit(command()));
 
-        assertEquals(1057, e.getCode());
+        assertEquals(1063, e.getCode());
         verify(drawRequestMapper, never()).insert(any(DrawRequestDO.class));
         verifyNoInteractions(drawMessageProducer);
+    }
+
+    @Test
+    void submitAllowsAnotherTaskForSamePrizeWhenSlotsRemain() {
+        ActivityPrizeDO prize = activityPrize(10L, PrizeTierEnum.FIRST_PRIZE,
+                ActivityPrizeStatusEnum.PENDING);
+        prize.setPrizeAmount(5L);
+        when(activityPrizeMapper.selectOne(any())).thenReturn(prize);
+        when(winningRecordMapper.countByActivityIdAndPrizeId(100L, 10L))
+                .thenReturn(0L);
+        // 同奖品已有一个未完成任务占用 1 个名额，仍然允许继续提交
+        when(drawRequestMapper.selectList(any())).thenReturn(List.of(
+                request(DrawRequestStatusEnum.PENDING, null)));
+        when(drawRequestMapper.insert(any(DrawRequestDO.class))).thenAnswer(invocation -> {
+            DrawRequestDO request = invocation.getArgument(0);
+            request.setId(99L);
+            return 1;
+        });
+
+        DrawRequestDTO result = assertDoesNotThrow(() -> service.submit(command()));
+
+        assertEquals(99L, result.getRequestId());
+        verify(drawMessageProducer).sendCommand(any());
     }
 
     @Test
@@ -310,6 +348,7 @@ class DrawRequestServiceImplTest {
         activityPrize.setId(prizeId);
         activityPrize.setActivityId(100L);
         activityPrize.setPrizeId(prizeId);
+        activityPrize.setPrizeAmount(5L);
         activityPrize.setPrizeTiers(tier.getCode());
         activityPrize.setStatus(status.getCode());
         return activityPrize;
