@@ -21,7 +21,7 @@
             color: #D40000;
         }
         /*
-         * 页面使用纵向 flex 布局：奖名单区域负责撑满剩余空间。
+         * 页面使用纵向 flex 布局：奖品图固定高度，中奖名单占满剩余空间。
          * 按钮容器固定在浏览器可视区域底部，避免小窗口时按钮被顶到屏幕外，
          * 也避免长用户名换行时把按钮上下顶动。
          */
@@ -35,19 +35,23 @@
             align-items: center;
             padding-bottom: 110px;
         }
+        /* 字号按原设计的约 67% 缩小，避免小窗口下挤占名单区域 */
         #title {
-            font-size: 100px;
-            margin-top: 80px;
+            font-size: 67px;
+            margin-top: 48px;
         }
         #disc {
-            font-size: 40px;
-            margin: 10px 0;
+            font-size: 27px;
+            margin: 8px 0;
         }
         #image {
-            margin-top: 20px;
-            max-height: 280px;
+            flex: 0 0 auto;
+            margin-top: 14px;
+            max-height: 188px;
+            max-width: 70%;
+            object-fit: contain;
             border: 1px solid #E23540FF;
-            border-radius: 20px;
+            border-radius: 14px;
         }
         #list {
             flex: 1 1 auto;
@@ -55,22 +59,50 @@
             width: 100%;
             max-width: 800px;
             box-sizing: border-box;
-            margin: 0 auto;
+            margin: 8px auto 0;
             overflow-y: auto;
             scrollbar-gutter: stable;
         }
-        #list span {
-            display: inline-block;
-            width: 160px;
-            font-size: 36px;
-            margin-top: 8px;
+        /*
+         * 中奖名单、闪烁名单、待确认名单统一一行一个人名。
+         * 固定块级宽度并省略溢出，长昵称只占自己这一行，不会覆盖相邻行。
+         */
+        #list .name-row {
+            display: block;
+            width: 100%;
+            box-sizing: border-box;
+            padding: 0 12px;
+            font-size: 24px;
+            line-height: 1.6;
+            margin: 4px 0;
+            text-align: center;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        #list .pending-row {
+            color: #999999;
+        }
+        #list .blink-row {
+            color: #D40000;
+            letter-spacing: 2px;
         }
         .records-item {
             text-align: center;
             cursor: pointer;
-            padding: 20px;
-            transition: background-color 0.3s;
-            font-size: 20px;
+            padding: 12px;
+            font-size: 14px;
+        }
+        .records-row {
+            display: block;
+            width: 100%;
+            box-sizing: border-box;
+            padding: 0 12px;
+            margin: 4px 0;
+            line-height: 1.6;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
         /* 操作区固定在可视页面底部，不参与名单高度变化 */
         .opt-box{
@@ -124,24 +156,29 @@
     var valid = params.get('valid');
     var userToken = localStorage.getItem("user_token");
 
-
-    // 获取网页上通过id为disc、image和list的DOM元素的引用。
+    // 获取网页上通过 id 为 disc、image 和 list 的 DOM 元素引用
     var disc = document.getElementById('disc')
     var image = document.getElementById('image')
     var list = document.getElementById('list')
 
-    // 奖品列表
+    // 奖品列表；每个奖品包含中奖名单 list 和本地待确认名单 pendingList
     var steps = null
-    // 抽到第几个了
+    // 当前抽到第几个奖品
     var step = 0
-    // 人员列表
+    // 剩余候选人员
     var names = null
-    // 正在做什么
+    // 当前页面状态：idle/blink/drawing/waiting/done/records
     var state = ''
     // 已提交但尚未确认结果的抽奖任务，key 为 requestId
     var pendingTasks = {}
+    // 两次抽奖点击的最小间隔，防止手滑连点产生并发请求
+    var CLICK_INTERVAL_MS = 500
+    // 上一次被接受的点击时间
+    var lastClickAt = 0
+    // 用于取消过期的闪烁动画
+    var blinkToken = 0
 
-    // 等待DOM加载完成
+    // 等待 DOM 加载完成
     document.addEventListener('DOMContentLoaded', function() {
         var titleDiv = document.getElementById('title');
         var activityName = params.get('activityName');
@@ -153,30 +190,154 @@
         var hour = ('0' + date.getHours()).slice(-2);
         var minute = ('0' + date.getMinutes()).slice(-2);
         var second = ('0' + date.getSeconds()).slice(-2);
-        // 构建格式化的日期字符串
         return hour + ':' + minute + ':' + second;
     }
 
-    // showPic函数用于显示图片和奖品信息。
-    // 它将data.disc设置为disc元素的innerHTML，将data.image设置为image元素的src属性，然后显示图片并隐藏列表。
-    function showPic(data) {
-        disc.innerHTML = data.prizeTierName + ' ' + data.name + ' ' + data.prizeAmount + '份'
-        image.src = data.imageUrl ? data.imageUrl : '/pic/defaultPrizeImg.png'
-        image.style.display = 'inline'
-        list.style.display = 'none'
+    // 清空名单区域
+    function clearList() {
         while (list.hasChildNodes()) {
             list.removeChild(list.firstChild)
         }
     }
 
-    // 查询中奖记录
+    // 追加一行姓名，保证一行只显示一个人名
+    function appendNameRow(text, extraClass) {
+        var row = document.createElement('div')
+        row.className = 'name-row' + (extraClass ? ' ' + extraClass : '')
+        row.textContent = text
+        list.appendChild(row)
+        return row
+    }
+
+    // 显示奖品图片；抽奖前、抽奖中、抽奖后都保留图片
+    function showPrizeImage(data) {
+        image.src = data.imageUrl ? data.imageUrl : '/pic/defaultPrizeImg.png'
+        image.style.display = 'inline'
+    }
+
+    // 奖品标题显示当前抽取进度
+    function buildPrizeTitle(data) {
+        var done = (data.list || []).length
+        return data.prizeTierName + ' ' + data.name + ' 已抽 ' + done + '/' + data.prizeAmount + ' 份'
+    }
+
+    // 初始化奖品的前端状态容器
+    function ensurePrizeState(data) {
+        data.list = data.list || []
+        data.pendingList = data.pendingList || []
+    }
+
+    // 奖品是否已经抽满；后端 valid=false 或本中奖名单达到数量都算抽满
+    function isPrizeFinished(data) {
+        if (!data) {
+            return true
+        }
+        if (!data.valid) {
+            return true
+        }
+        return (data.list || []).length >= data.prizeAmount
+    }
+
+    // 当前奖品还能再抽几个人；待确认任务也占用名额
+    function remainingOf(data) {
+        var done = (data.list || []).length + (data.pendingList || []).length
+        return Math.max(0, data.prizeAmount - done)
+    }
+
+    // 渲染当前奖品：奖品图 + 中奖名单 + 待确认名单
+    function renderPrize(data) {
+        showPrizeImage(data)
+        disc.textContent = buildPrizeTitle(data)
+        list.style.display = 'block'
+        list.className = 'prize-list'
+        clearList()
+
+        var i
+        for (i = 0; i < (data.list || []).length; i++) {
+            appendNameRow(data.list[i].userName)
+        }
+        for (i = 0; i < (data.pendingList || []).length; i++) {
+            appendNameRow(data.pendingList[i].userName + '（待确认）', 'pending-row')
+        }
+    }
+
+    // 设置底部主按钮的文案和可点击状态
+    function setNextButton(text, enabled) {
+        var nextButton = document.querySelector('.btn.next-btn')
+        nextButton.textContent = text
+        nextButton.style.pointerEvents = enabled ? '' : 'none'
+        nextButton.style.opacity = enabled ? '1' : '0.6'
+    }
+
+    // 当前闪烁行显示的人；用户点击确定时就是他中奖
+    var blinkCandidate = null
+
+    // 从剩余候选人中随机取一个人，尽量避免连续两次显示同一个人
+    function pickCandidate() {
+        if (!names || names.length === 0) {
+            return null
+        }
+        var index = Math.floor(Math.random() * names.length)
+        if (names.length > 1 && blinkCandidate
+            && names[index].userId === blinkCandidate.userId) {
+            index = (index + 1) % names.length
+        }
+        return names[index]
+    }
+
+    // 闪烁动画的刷新间隔，太快会看不清名字
+    var BLINK_REFRESH_MS = 60
+    // 当前闪烁动画的计时器
+    var blinkTimer = null
+
+    // 停止闪烁动画，避免切换状态后继续刷新旧行
+    function stopBlink() {
+        if (blinkTimer !== null) {
+            clearInterval(blinkTimer)
+            blinkTimer = null
+        }
+    }
+
+    // 只开始滚动，不提交抽奖请求；用户再次点击才真正抽取
+    function startBlink(data) {
+        blinkToken++
+        state = 'blink'
+        stopBlink()
+        renderPrize(data)
+
+        blinkCandidate = pickCandidate()
+        var row = appendNameRow(blinkCandidate ? blinkCandidate.userName : '抽奖中...',
+            'blink-row')
+
+        blinkTimer = setInterval(function() {
+            if (state !== 'blink') {
+                stopBlink()
+                return
+            }
+            blinkCandidate = pickCandidate()
+            row.textContent = blinkCandidate ? blinkCandidate.userName : '抽奖中...'
+        }, BLINK_REFRESH_MS)
+    }
+
+    // 两次有效点击至少间隔 500ms；间隔内的点击直接忽略，不排队也不补发
+    function acceptClick() {
+        var now = Date.now()
+        if (now - lastClickAt < CLICK_INTERVAL_MS) {
+            return false
+        }
+        lastClickAt = now
+        return true
+    }
+
+    // 展示中奖总名单
     function showRecords() {
+        state = 'records'
+        stopBlink()
         disc.innerHTML = "中奖名单"
+        // 最终名单是整场活动的汇总，没有单个奖品对应，隐藏奖品图避免显示成上一张奖品
         image.style.display = 'none'
         list.style.display = 'block'
-        while (list.hasChildNodes()) {
-            list.removeChild(list.firstChild)
-        }
+        clearList()
         $.ajax({
             url: '/winning-records/show',
             type: 'POST',
@@ -194,50 +355,38 @@
                     list.className = "records-item"
                     for (var i = 0; i < records.length; ++i) {
                         var item = document.createElement('div')
+                        item.className = 'records-row'
                         item.textContent = formatDate(records[i].winningTime) + ' '
-                        + records[i].winnerName + ' '
-                        + records[i].prizeName + ' '
-                        + (records[i].prizeTierName || records[i].prizeTier) + ' '
+                            + records[i].winnerName + ' '
+                            + records[i].prizeName + ' '
+                            + (records[i].prizeTierName || records[i].prizeTier)
                         list.appendChild(item)
                     }
 
-                    // 分享链接
-                    // 检查是否已经有分享按钮，如果没有则创建
+                    // 分享链接：每个结果页只创建一个分享按钮
                     var optBox = document.querySelector('.opt-box');
                     var existingBtn = optBox.querySelector('.btn.copy-btn');
                     if (!existingBtn) {
                         var newBtn = document.createElement('span');
                         newBtn.className = 'btn copy-btn';
-                        // 设置点击事件处理函数
                         newBtn.onclick = function() {
-                            // 创建URL对象
                             var currentUrl = new URL(window.location);
-                            // 创建URLSearchParams对象
                             var searchParams = currentUrl.searchParams;
-                            // 更新参数
                             searchParams.delete('valid');
                             searchParams.append('valid', false);
-                            // 防止分享再分享，拼接多个参数
                             searchParams.delete('hideButton');
                             searchParams.append('hideButton', true);
-                            // 更新URL对象的搜索字符串
                             currentUrl.search = searchParams.toString();
-                            // 获取当前页面的URL
-                            var url = currentUrl;
-                            // 执行复制操作
-                            copyToClipboard(url);
+                            copyToClipboard(currentUrl);
                         };
-                        // 设置span元素的文本内容
                         newBtn.textContent = '分享结果';
-                        // 将新的span元素添加到.opt-box容器中
                         optBox.appendChild(newBtn);
                     }
 
-                    // 是否隐藏按钮
+                    // 分享结果页隐藏抽奖按钮
                     var hideButton = params.get('hideButton');
                     if ((hideButton == null && valid === 'false')
                         || hideButton === 'true') {
-                        // 隐藏所有元素
                         var buttons = document.querySelectorAll('.btn.pre-btn, .btn.next-btn');
                         buttons.forEach(function(button) {
                             button.style.display = 'none';
@@ -250,16 +399,12 @@
 
     // 复制当前地址
     function copyToClipboard(textToCopy) {
-        // navigator clipboard 需要https等安全上下文
         if (navigator.clipboard && window.isSecureContext) {
-            // navigator clipboard 向剪贴板写文本
             return navigator.clipboard.writeText(textToCopy)
                 .then(() => {alert("链接已复制到剪贴板");});
         } else {
-            // 创建text area
             let textArea = document.createElement("textarea");
             textArea.value = textToCopy;
-            // 使text area不在viewport，同时设置不可见
             textArea.style.position = "absolute";
             textArea.style.opacity = 0;
             textArea.style.left = "-999999px";
@@ -268,7 +413,6 @@
             textArea.focus();
             textArea.select();
             return new Promise((res, rej) => {
-                // 执行复制命令并移除文本框
                 document.execCommand('copy') ? res() : rej();
                 textArea.remove();
                 alert("链接已复制到剪贴板");
@@ -276,110 +420,7 @@
         }
     }
 
-    // showBlink函数用于显示闪烁的文字。
-    // 它首先设置奖品信息，隐藏图片，显示列表，然后创建与data.count相等数量的span元素。
-    function showBlink(data) {
-        disc.innerHTML = data.prizeTierName + ' ' + data.name + ' ' + data.prizeAmount + '份'
-        image.style.display = 'none'
-        list.style.display = 'block'
-        list.className = ''
-        while (list.hasChildNodes()) {
-            list.removeChild(list.firstChild)
-        }
-        var spans = []
-        for (var i = 0; i < data.prizeAmount; ++i) {
-            var span = document.createElement('span')
-            list.appendChild(span)
-            spans.push(span)
-        }
-
-        // doBlink函数用于实现文字的闪烁效果，通过window.requestAnimationFrame来循环调用。
-        function doBlink() {
-            if (state == 'showBlink') {
-                // Math.random() 生成一个 [0, 1) 范围内的伪随机数，
-                // 所以表达式的结果将在 (-0.5, 0.5] 范围内，这会导致 names 数组的元素随机排序。
-                names.sort(function(a, b) {
-                    return 0.5 - Math.random()
-                })
-                // 只展示当前奖项个数的随机人名
-                for (var i = 0; i < data.prizeAmount; ++i) {
-                    spans[i].innerHTML = names[i].userName
-                }
-                window.requestAnimationFrame(doBlink)
-            }
-        }
-
-      // 告诉浏览器——你希望执行一个动画，并且要求浏览器在下次重绘之前调用指定的回调函数更新动画。
-      window.requestAnimationFrame(doBlink)
-    }
-
-    // 通过后端展示奖品维度中奖者，主要是防止页面刷新后前端临时名单丢失
-    function showWinnerListWithPrize(data) {
-        $.ajax({
-            url: '/winning-records/show',
-            type: 'POST',
-            dataType: 'json',
-            contentType: 'application/json',
-            headers: {
-                'user_token': userToken
-            },
-            data: JSON.stringify({activityId: activityId, prizeId: data.prizeId}),
-            success: function(result) {
-                if (result.code != 200) {
-                    alert("查询中奖记录失败！" + result.message);
-                    return;
-                }
-
-                // 中奖名单直接以后端中奖记录为准，不依赖抽奖池 names
-                var luckRecords = result.data || []
-                data.list = luckRecords.map(function(record) {
-                    return {
-                        userId: record.winnerId,
-                        userName: record.winnerName
-                    };
-                });
-
-                // names 只负责后续抽奖池，这里同步移除已经中奖的人
-                var winnerIds = data.list.map(function(item) {
-                    return item.userId;
-                });
-                names = (names || []).filter(function(item) {
-                    return winnerIds.indexOf(item.userId) === -1;
-                });
-
-                for (var i = 0; i < data.list.length; ++i) {
-                    var span = document.createElement('span')
-                    span.innerHTML = data.list[i].userName
-                    list.appendChild(span)
-                }
-            }
-        });
-    }
-
-    // showList函数用于显示静态的文字列表。它设置奖品信息，隐藏图片，显示列表，并将data.list中的数据添加到列表中。
-    function showList(data) {
-        disc.innerHTML = data.prizeTierName + ' ' + data.name + ' ' + data.prizeAmount + '份'
-        image.style.display = 'none'
-        list.style.display = 'block'
-        while (list.hasChildNodes()) {
-            list.removeChild(list.firstChild)
-        }
-
-        // data.list是前端保存的临时数据，若当前抽奖页刷新，则数据丢失
-        // 因此判断一下是否为空，为空需要查询后端
-        data.list = data.list || []
-        if (data.list.length > 0) {
-            for (var i = 0; i < data.list.length; ++i) {
-                var span = document.createElement('span')
-                span.innerHTML = data.list[i].userName
-                list.appendChild(span)
-            }
-        } else {
-            showWinnerListWithPrize(data)
-        }
-    }
-
-    // 第一个奖项没有上一奖项，按钮隐藏；后续奖项显示
+    // 第一个奖项没有上一奖项，按钮隐藏
     function updatePrevButton() {
         var prevButton = document.querySelector('.btn.pre-btn');
         if (!prevButton) {
@@ -388,131 +429,73 @@
         prevButton.style.display = step > 0 ? '' : 'none';
     }
 
-    // 这是改变next-btn按钮文本的函数
-    function changeNextButtonText(text) {
-        var nextButton = document.querySelector('.btn.next-btn');
-        nextButton.textContent = text;
-    }
-
-    // 进入奖项时直接渲染当前奖项：已抽完显示结果，未抽完显示抽奖按钮
-    function renderCurrentStep() {
-        updatePrevButton();
-
-        // step 越界表示所有奖项已完成，展示总中奖名单
-        if (step >= steps.length) {
-            showRecords();
-            changeNextButtonText('已全部抽完');
-            return;
-        }
-
-        var data = steps[step];
-
-        // 已抽完奖项不再展示奖品图，直接展示中奖结果
-        if (!data.valid) {
-            state = 'showList';
-            showList(data);
-            changeNextButtonText(step < steps.length - 1 ? '查看下一奖项' : '已全部抽完');
-            return;
-        }
-
-        // 未抽完奖项展示奖品图和抽奖入口
-        state = 'showPic';
-        showPic(data);
-        changeNextButtonText('开始抽奖');
-    }
-
-    // 重新进入抽奖页时定位到第一个仍待抽取的奖项，避免从已抽完奖项重新走抽奖流程
+    // 重新进入抽奖页时定位到第一个仍待抽取的奖项
     function initDrawStep() {
         var firstPending = -1;
-        var nextButton = document.querySelector('.btn.next-btn');
-
-        // 同步状态时先恢复按钮可点击，避免上一次提交遗留的禁用态
-        if (nextButton) {
-            nextButton.style.pointerEvents = '';
-        }
-
-        // 遍历奖品快照，找到第一个后端仍标记为可抽奖的奖品
         for (var i = 0; i < steps.length; ++i) {
-            if (steps[i].valid) {
+            if (!isPrizeFinished(steps[i])) {
                 firstPending = i;
                 break;
             }
         }
-
-        // 全部抽完时进入结果页；否则从当前奖项开始
         step = firstPending >= 0 ? firstPending : steps.length;
         renderCurrentStep();
     }
 
-    // 后端状态变化时重新拉取活动详情，并定位到当前可抽奖奖项
-    function syncActivityFromServer() {
-        reloadConf(initDrawStep)
-    }
+    // 渲染当前奖项：未抽满显示抽奖入口，已抽满显示结果并允许进入下一奖项
+    function renderCurrentStep() {
+        updatePrevButton();
+        blinkToken++
+        stopBlink()
+        blinkCandidate = null
 
-    // 提交成功后先本地扣人，避免下一轮重复选中同一批人
-    function reservePendingWinners(data, luck) {
-        var ids = luck.map(function(item) {
-            return item.userId;
-        });
-
-        names = (names || []).filter(function(item) {
-            return ids.indexOf(item.userId) === -1;
-        });
-        data.valid = false;
-        data.pending = true;
-        data.list = luck.slice();
-    }
-
-    // 后台任务失败后把人员放回候选池，便于重新抽奖
-    function releasePendingWinners(data, luck) {
-        var existingIds = (names || []).map(function(item) {
-            return item.userId;
-        });
-        var restored = luck.filter(function(item) {
-            return existingIds.indexOf(item.userId) === -1;
-        });
-
-        names = (names || []).concat(restored);
-        data.valid = true;
-        data.pending = false;
-        data.list = [];
-    }
-
-    // 抽奖任务已受理后进入下一奖项；如果用户已经离开当前奖项，只同步本地状态
-    function goNextStepAfterSubmit(submitStep) {
-        if (step !== submitStep) {
+        if (step >= steps.length) {
+            showRecords();
+            setNextButton('已全部抽完', false);
             return;
         }
 
-        if (step < steps.length - 1) {
-            ++step;
-            renderCurrentStep();
-        } else {
-            state = 'showList';
-            changeNextButtonText('已提交，等待结果');
-            document.querySelector('.btn.next-btn').style.pointerEvents = 'none';
+        var data = steps[step];
+        ensurePrizeState(data);
+
+        // 已抽满：展示该奖品图和完整中奖名单
+        if (isPrizeFinished(data)) {
+            state = 'done';
+            renderPrize(data);
+            setNextButton(step < steps.length - 1 ? '查看下一奖项' : '查看全部中奖名单', true);
+            return;
         }
+
+        // 未抽满：展示奖品图和已中奖/待确认名单
+        renderPrize(data);
+        if (remainingOf(data) <= 0) {
+            state = 'waiting';
+            setNextButton('等待抽奖结果...', false);
+            return;
+        }
+        state = 'idle';
+        setNextButton('抽下一个人', true);
     }
 
-    // 构造抽奖请求体；中奖人只提交 id 和展示名，最终状态以后端为准
-    function buildDrawPrizeData(data, luck) {
-        var luckUserList = luck.map(function(item) {
-            return {
-                userId: item.userId,
-                userName: item.userName
-            }
-        })
+    // 后端状态变化时强制回源数据库并重新定位奖品
+    function syncActivityFromServer() {
+        reloadConf(initDrawStep, true)
+    }
 
+    // 构造抽奖请求体；一次只提交一个中奖人
+    function buildDrawPrizeData(data, luck) {
         return {
             activityId: activityId,
             prizeId: data.prizeId,
-            winnerList: luckUserList
+            winnerList: [{
+                userId: luck.userId,
+                userName: luck.userName
+            }]
         };
     }
 
-    // 提交抽奖任务；拿到 requestId 后立即回调，不等待后台抽奖结果
+    // 提交抽奖任务；拿到 requestId 后立即进入本地待确认状态
     function submitDrawRequest(drawPrizesData, onAccepted, onRejected) {
-        // 发送AJAX请求，成功后再更新页面状态
         $.ajax({
             url: '/draw-prize',
             type: 'POST',
@@ -538,7 +521,6 @@
                 console.log(err);
                 if(err!=null && err.status==401){
                     alert("用户未登录, 即将跳转到登录页!");
-                    // 已经被拦截器拦截了, 未登录
                     location.href ="/blogin.html";
                     return;
                 }
@@ -551,22 +533,43 @@
         });
     }
 
-    // 兼容旧调用名：只负责提交，不再等待轮询成功
-    function saveLuck(data, luck, onAccepted, onRejected) {
-        submitDrawRequest(buildDrawPrizeData(data, luck), onAccepted, onRejected);
+    // 把一个候选人放进本地待确认名单
+    function reservePendingWinner(data, luck) {
+        data.pendingList = data.pendingList || []
+        data.pendingList.push(luck)
+        // names 在点击时已经移除，失败时会放回
     }
 
-    // 后台轮询抽奖任务状态；不阻塞用户进入下一轮
-    function startPollDrawStatus(requestId) {
-        var task = pendingTasks[requestId]
-        if (!task) {
-            return
+    // 任务成功：待确认名单转为正式中奖名单
+    function movePendingToWinner(data, luck) {
+        data.pendingList = (data.pendingList || []).filter(function(item) {
+            return item.userId !== luck.userId
+        })
+        var exists = (data.list || []).some(function(item) {
+            return item.userId === luck.userId
+        })
+        if (!exists) {
+            data.list.push(luck)
         }
-
-        queryDrawStatus(task)
+        if (data.list.length >= data.prizeAmount) {
+            data.valid = false
+        }
     }
 
-    // 查询一次抽奖任务状态，并按终态/非终态决定下一步
+    // 任务失败：从待确认名单移除，并放回候选池
+    function releasePendingWinner(data, luck) {
+        data.pendingList = (data.pendingList || []).filter(function(item) {
+            return item.userId !== luck.userId
+        })
+        var exists = (names || []).some(function(item) {
+            return item.userId === luck.userId
+        })
+        if (!exists) {
+            names.unshift(luck)
+        }
+    }
+
+    // 查询一次抽奖任务状态
     function queryDrawStatus(task) {
         $.ajax({
             url: '/draw-prize/status',
@@ -631,184 +634,166 @@
         handleTaskFailure(task, '查询抽奖结果失败，请稍后重试')
     }
 
-    // 后台任务成功时更新对应奖品快照；用户已离开该奖项时只更新内存状态
+    // 任务成功时把待确认人员转为正式中奖，并刷新当前奖品展示
     function handleTaskSuccess(task, statusData) {
         clearTimeout(task.timer)
         delete pendingTasks[task.requestId]
 
-        var winners = statusData && statusData.winnerList
-            && statusData.winnerList.length > 0
-            ? statusData.winnerList : task.luck
-        task.data.pending = false
-        task.data.valid = false
-        task.data.list = winners.slice()
+        movePendingToWinner(task.data, task.luck)
 
+        // 当前页面仍停在该奖品时直接刷新；否则只更新内存并等待用户回到该奖品
         if (steps[step] === task.data) {
-            state = 'showList'
-            showList(task.data)
-            changeNextButtonText(step < steps.length - 1 ? '已抽完，下一步' : '已全部抽完')
-            document.querySelector('.btn.next-btn').style.pointerEvents = ''
-        } else if (Object.keys(pendingTasks).length === 0 && step >= steps.length) {
-            showRecords()
-            changeNextButtonText('已全部抽完')
-            document.querySelector('.btn.next-btn').style.pointerEvents = ''
+            renderCurrentStep()
+        } else if (task.data.list.length >= task.data.prizeAmount) {
+            task.data.valid = false
+        }
+
+        // 回源刷新后旧任务对象可能已经不在 steps 中，全部完成后重新同步一次
+        if (steps.indexOf(task.data) === -1 && Object.keys(pendingTasks).length === 0) {
+            syncActivityFromServer()
         }
     }
 
-    // 后台任务失败时释放本地扣住的人员，并提示用户
+    // 任务失败时释放本地占用的人员；状态不一致时强制回源
     function handleTaskFailure(task, message, code) {
         clearTimeout(task.timer)
         delete pendingTasks[task.requestId]
 
-        // 已抽取或顺序错误说明前端状态落后于后端，需要重新同步活动详情
-        if (code === 1049 || code === 1056) {
-            syncActivityFromServer()
-            return
-        }
-
-        releasePendingWinners(task.data, task.luck)
+        releasePendingWinner(task.data, task.luck)
 
         if (steps[step] === task.data) {
-            state = 'showBlink'
-            showBlink(task.data)
-            changeNextButtonText('点我确定')
-            document.querySelector('.btn.next-btn').style.pointerEvents = ''
+            renderCurrentStep()
+        }
+
+        // 已抽取、顺序错误、名额不足说明前端状态落后于后端
+        if (code === 1049 || code === 1056 || code === 1063) {
+            syncActivityFromServer()
+            return
         }
         alert('抽奖失败！' + message)
     }
 
-    // 展示本次选中的候选人，并标明结果仍在处理中
-    function showPendingWinners(data, luck) {
-        disc.innerHTML = data.prizeTierName + ' ' + data.name + ' ' + data.prizeAmount + '份'
-        image.style.display = 'none'
-        list.style.display = 'block'
-        list.className = ''
-        while (list.hasChildNodes()) {
-            list.removeChild(list.firstChild)
+    // 第一次点击：只开始滚动，不创建抽奖任务
+    function startDraw(data) {
+        if (!names || names.length === 0) {
+            alert('已没有可抽奖的候选人')
+            return
         }
-        for (var i = 0; i < luck.length; ++i) {
-            var span = document.createElement('span')
-            span.innerHTML = luck[i].userName + '（待确认）'
-            list.appendChild(span)
+        if (remainingOf(data) <= 0) {
+            renderCurrentStep()
+            return
         }
+        if (!acceptClick()) {
+            return
+        }
+
+        startBlink(data)
+        // 前 500ms 先禁用确定按钮，避免手滑第二次点击立刻提交
+        setNextButton('滚动中...', false)
+        setTimeout(function() {
+            if (state === 'blink') {
+                setNextButton('点我确定', true)
+            }
+        }, CLICK_INTERVAL_MS)
     }
 
-    // 提交当前奖项；拿到 requestId 后立即本地扣人并进入下一轮
-    function submitCurrentPrize(data) {
-        // 只防止同一个奖品重复提交；不同奖品可以连续提交，由后台按队列顺序处理
-        if (data.submitting) {
+    // 第二次点击：停止滚动，当前显示的人中奖，并提交一次抽奖请求
+    function confirmDraw(data) {
+        if (!acceptClick()) {
             return
         }
-        if (!names || names.length < data.prizeAmount) {
-            alert('剩余可抽奖人数不足')
+        if (!blinkCandidate) {
+            renderCurrentStep()
+            syncActivityFromServer()
             return
         }
 
-        // 先取候选人，提交成功后再本地扣人，避免失败时名单不可恢复
-        var luck = names.slice(0, data.prizeAmount)
-        var submitStep = step
-        var nextButton = document.querySelector('.btn.next-btn')
+        // 先同步进入 drawing 并停止动画，双击时第二次点击会被状态判断拦掉
+        var luck = blinkCandidate
+        stopBlink()
+        state = 'drawing'
+        setNextButton('抽奖中...', false)
 
-        data.list = luck.slice()
-        data.submitting = true
-        nextButton.style.pointerEvents = 'none'
-        showPendingWinners(data, luck)
-        changeNextButtonText('抽奖处理中...')
+        // 中奖人从候选池移除，失败时再放回
+        var index = -1
+        for (var i = 0; i < names.length; ++i) {
+            if (names[i].userId === luck.userId) {
+                index = i
+                break
+            }
+        }
+        if (index >= 0) {
+            names.splice(index, 1)
+        }
 
-        // 投递异步抽奖任务；拿到 requestId 后立即进入下一轮，不等待 SUCCESS
-        saveLuck(data, luck, function(requestId) {
-            handleDrawAccepted(data, luck, requestId, submitStep, nextButton)
+        submitDrawRequest(buildDrawPrizeData(data, luck), function(requestId) {
+            reservePendingWinner(data, luck)
+            pendingTasks[requestId] = {
+                requestId: requestId,
+                data: data,
+                luck: luck,
+                timer: null,
+                attempts: 0
+            }
+            renderPrize(data)
+            // 任务未结束前继续保持禁用，保证同一时间只有一个在途请求
+            setNextButton('等待抽奖结果...', false)
+            queryDrawStatus(pendingTasks[requestId])
         }, function(message, code) {
-            handleDrawRejected(data, message, code, nextButton)
+            var exists = (names || []).some(function(item) {
+                return item.userId === luck.userId
+            })
+            if (!exists) {
+                names.unshift(luck)
+            }
+            renderCurrentStep()
+            if (code === 1049 || code === 1056 || code === 1063) {
+                syncActivityFromServer()
+                return
+            }
+            alert('抽奖失败！' + message)
         })
     }
 
-    // 抽奖任务受理后：记录待确认人员，并让页面继续下一轮
-    function handleDrawAccepted(data, luck, requestId, submitStep, nextButton) {
-        reservePendingWinners(data, luck)
-        pendingTasks[requestId] = {
-            requestId: requestId,
-            data: data,
-            luck: luck,
-            timer: null,
-            attempts: 0
-        }
-        startPollDrawStatus(requestId)
-
-        data.submitting = false
-        nextButton.style.pointerEvents = ''
-        goNextStepAfterSubmit(submitStep)
-    }
-
-    // 抽奖任务提交失败：状态落后时同步后端，普通失败时回到当前奖项重试
-    function handleDrawRejected(data, message, code, nextButton) {
-        data.submitting = false
-        nextButton.style.pointerEvents = ''
-        data.list = []
-
-        // 后端已经抽过或顺序变化时，重新同步状态，不再让用户反复点同一个奖品
-        if (code === 1049 || code === 1056) {
-            syncActivityFromServer()
+    // 主按钮：第一次点击开始滚动，第二次点击确定中奖人，抽满后进入下一奖项
+    function nextStep() {
+        updatePrevButton()
+        if (!steps) {
             return
         }
 
-        state = 'showBlink'
-        showBlink(data)
-        changeNextButtonText('点我确定')
-        alert('抽奖失败！' + message)
-    }
+        // 滚动中再次点击表示确定当前显示的人
+        if (state === 'blink') {
+            confirmDraw(steps[step])
+            return
+        }
+        // 请求在途或等待结果时不允许再次抽奖，避免并发
+        if (state === 'drawing' || state === 'waiting') {
+            return
+        }
 
-    // nextStep函数用于根据当前状态显示下一个步骤的内容。
-    // 它根据state的值和data.list的长度来决定是显示图片、闪烁文字还是静态文字列表，并更新step和state。
-    function nextStep() {
-        // 每次进入新步骤先同步“查看上一奖项”按钮状态
-        updatePrevButton()
-
-        // step 越界说明已经到最终结果页，统一交给 renderCurrentStep 处理
         if (step >= steps.length) {
             renderCurrentStep()
             return
         }
 
         var data = steps[step]
-        console.log("steps[" + step + "]:" + JSON.stringify(data))
-        if (state == 'showPic') {
-            if (data.valid) {
-                // 还没抽：抽奖
-                state = 'showBlink'
-                showBlink(data)
-                changeNextButtonText('点我确定')
-            } else {
-                // 抽过了：展示
-                state = 'showList'
-                showList(data)
-                changeNextButtonText('已抽完，下一步')
-            }
-        } else if (state == 'showBlink') {
-            submitCurrentPrize(data)
-        } else if (state == 'showList') {
-            if (step < (steps.length - 1)) {
-                ++step
-                renderCurrentStep()
-            } else {
-                // 最后一个奖项仍有后台任务时，不提前展示最终名单，等 SUCCESS 后再刷新
-                if (Object.keys(pendingTasks).length > 0) {
-                    return
-                }
-                // 抽奖结束，展示全量中奖列表
-                if (step == (steps.length - 1)) {
-                    ++step
-                }
-                showRecords()
-                changeNextButtonText('已全部抽完')
-            }
-        } else {
+        ensurePrizeState(data)
+
+        if (isPrizeFinished(data)) {
+            step = step < steps.length - 1 ? step + 1 : steps.length
             renderCurrentStep()
+            return
         }
+
+        startDraw(data)
     }
 
-    // previousStep函数用于返回到上一个奖项，并直接渲染该奖项的结果或抽奖入口
+    // 返回上一奖项；滚动中或请求在途时不允许切换
     function previousStep() {
+        if (state === 'blink' || state === 'drawing' || state === 'waiting') {
+            return
+        }
         if (step > 0) {
             --step
         }
@@ -817,12 +802,10 @@
 
     // 抽奖页面加载逻辑
     function drawPage() {
-        // 判断活动是否有效:进行中
         if (valid == "true") {
-            // 判断是用户还是管理员，只有管理员有权限抽奖
             var identity = localStorage.getItem("user_identity");
             if (identity == "ADMIN") {
-                // 页面加载完成后读取最新活动详情，并定位到第一个仍待抽取的奖项
+                // 优先读取 Redis 中的活动详情；只有异常恢复时才强制回源
                 reloadConf(initDrawStep)
             } else {
                 alert("抽奖未结束，由于您不是管理员，无权限限参与抽奖。请耐心等待抽奖结束后查看中奖名单");
@@ -832,14 +815,54 @@
         }
     }
 
-    // reloadConf函数用于重新加载活动详情。抽奖页默认读取最新状态，避免旧缓存导致死循环。
-    // 如果提供了回调函数func，则在文件读取完成后调用它。
-    function reloadConf(func) {
-        // 发送AJAX请求
+    // 回源后把未完成任务的本地占位重新合并进来，避免重复抽到同一批人
+    function applyPendingReservations() {
+        var pendingIds = {}
+        Object.keys(pendingTasks).forEach(function(requestId) {
+            var task = pendingTasks[requestId]
+            if (!task || !task.luck) {
+                return
+            }
+            pendingIds[task.luck.userId] = true
+
+            var prize = null
+            for (var i = 0; i < steps.length; ++i) {
+                if (steps[i].prizeId === task.data.prizeId) {
+                    prize = steps[i]
+                    break
+                }
+            }
+            if (!prize) {
+                return
+            }
+            prize.pendingList = prize.pendingList || []
+            var alreadyWinner = (prize.list || []).some(function(item) {
+                return item.userId === task.luck.userId
+            })
+            var alreadyPending = prize.pendingList.some(function(item) {
+                return item.userId === task.luck.userId
+            })
+            if (!alreadyWinner && !alreadyPending) {
+                prize.pendingList.push(task.luck)
+            }
+        })
+
+        names = (names || []).filter(function(item) {
+            return !pendingIds[item.userId]
+        })
+    }
+
+    // 加载活动详情；forceFresh=true 时跳过 Redis 直接回源数据库
+    function reloadConf(func, forceFresh) {
+        var query = { activityId: activityId }
+        if (forceFresh === true) {
+            query.fresh = true
+        }
+
         $.ajax({
             url: '/activity/detail',
             type: 'GET',
-            data: { activityId: activityId, fresh: true },
+            data: query,
             dataType: 'json',
             headers: {
                 'user_token': userToken
@@ -850,6 +873,7 @@
                 } else {
                     names = result.data.users;
                     steps = result.data.prizes;
+                    applyPendingReservations();
                     if (func) func();
                 }
             },
@@ -857,7 +881,6 @@
                 console.log(err);
                 if(err!=null && err.status==401){
                     alert("用户未登录, 即将跳转到登录页!");
-                    // 已经被拦截器拦截了, 未登录
                     location.href ="/blogin.html";
                 }
             }
