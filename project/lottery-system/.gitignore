@@ -35,3 +35,8 @@ build/
 logs/
 
 uploads/
+
+# 云服务器部署密钥，只提交 .env.example
+.env
+.env.*
+!.env.example

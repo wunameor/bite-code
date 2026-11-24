@@ -1,0 +1,120 @@
+name: lottery-system
+
+services:
+  mysql:
+    image: mysql:8.0
+    restart: unless-stopped
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_general_ci
+      - --default-time-zone=+08:00
+    environment:
+      TZ: Asia/Shanghai
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?请在 .env 中设置 MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME:-lottery_system}
+      MYSQL_USER: ${DB_USERNAME:-lottery}
+      MYSQL_PASSWORD: ${DB_PASSWORD:?请在 .env 中设置 DB_PASSWORD}
+    volumes:
+      - mysql-data:/var/lib/mysql
+      # 只在数据卷首次初始化时执行，负责建表；重置演示数据由 deploy/reset-demo-data.sh 负责
+      - ./sql/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - lottery-net
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - lottery-net
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    restart: unless-stopped
+    environment:
+      TZ: Asia/Shanghai
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USERNAME:-lottery}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?请在 .env 中设置 RABBITMQ_PASSWORD}
+      RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_VHOST:-lottery}
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+    networks:
+      - lottery-net
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: lottery-system:latest
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      TZ: Asia/Shanghai
+      SPRING_PROFILES_ACTIVE: cloud
+      # 云上必须使用独立 JWT 密钥；生成方式见 .env.example
+      JWT_SECRET: ${JWT_SECRET:?请在 .env 中设置 JWT_SECRET}
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: ${DB_NAME:-lottery_system}
+      DB_USERNAME: ${DB_USERNAME:-lottery}
+      DB_PASSWORD: ${DB_PASSWORD:?请在 .env 中设置 DB_PASSWORD}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USERNAME: ${RABBITMQ_USERNAME:-lottery}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:?请在 .env 中设置 RABBITMQ_PASSWORD}
+      RABBITMQ_VHOST: ${RABBITMQ_VHOST:-lottery}
+      COMPENSATION_ENABLED: ${COMPENSATION_ENABLED:-true}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+    volumes:
+      - app-uploads:/app/uploads
+      - app-logs:/app/logs
+    ports:
+      # 公网只暴露应用端口，MySQL / Redis / RabbitMQ 不对宿主机开放
+      - "${APP_PORT:-26000}:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c '</dev/tcp/127.0.0.1/8080'"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
+    networks:
+      - lottery-net
+
+volumes:
+  mysql-data:
+  redis-data:
+  rabbitmq-data:
+  app-uploads:
+  app-logs:
+
+networks:
+  lottery-net:
+    driver: bridge

@@ -115,6 +115,8 @@
     </dependencies>
 
     <build>
+        <!-- 固定 jar 名，Dockerfile 不依赖版本号 -->
+        <finalName>lottery-system</finalName>
         <plugins>
             <plugin>
                 <groupId>org.springframework.boot</groupId>
