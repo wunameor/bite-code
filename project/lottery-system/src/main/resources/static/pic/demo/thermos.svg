@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="不锈钢保温杯">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f7f8fa"/>
+      <stop offset="1" stop-color="#e6e9ef"/>
+    </linearGradient>
+    <linearGradient id="body" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#2f6f5a"/>
+      <stop offset="0.45" stop-color="#3f8a70"/>
+      <stop offset="1" stop-color="#245846"/>
+    </linearGradient>
+    <linearGradient id="lid" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#c9a06a"/>
+      <stop offset="1" stop-color="#a97e45"/>
+    </linearGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="14" stdDeviation="16" flood-color="#1b2433" flood-opacity="0.22"/>
+    </filter>
+  </defs>
+  <rect width="512" height="512" fill="url(#bg)"/>
+  <ellipse cx="256" cy="440" rx="90" ry="18" fill="#1b2433" opacity="0.10"/>
+  <g filter="url(#shadow)">
+    <rect x="196" y="70" width="120" height="42" rx="16" fill="url(#lid)"/>
+    <rect x="214" y="108" width="84" height="16" rx="8" fill="#8a6535"/>
+    <path d="M196 132 h120 v250 a42 42 0 0 1 -42 42 h-36 a42 42 0 0 1 -42 -42z" fill="url(#body)"/>
+    <rect x="214" y="150" width="26" height="230" rx="13" fill="#ffffff" opacity="0.18"/>
+    <rect x="252" y="180" width="76" height="8" rx="4" fill="#ffffff" opacity="0.28"/>
+    <rect x="252" y="202" width="58" height="8" rx="4" fill="#ffffff" opacity="0.22"/>
+    <ellipse cx="256" cy="132" rx="60" ry="12" fill="#1b2433" opacity="0.12"/>
+  </g>
+</svg>
