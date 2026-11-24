@@ -100,6 +100,17 @@ docker compose build app
 docker compose up -d
 ```
 
+服务器上是 monorepo，只稀疏检出子目录，不整仓 clone：
+
+```bash
+git clone --depth 1 --filter=blob:none --sparse \
+  https://gitee.com/wunameor/bite-code.git /opt/bite-code
+cd /opt/bite-code
+git sparse-checkout set project/lottery-system
+```
+
+部署目录固定为 `/opt/bite-code/project/lottery-system`，所有 compose 和 `deploy/*.sh` 命令都在该目录执行。Gitee 不支持 `--filter` 时去掉该参数，改用 `git sparse-checkout init --cone` 再 `set`。
+
 首次部署初始化管理员：
 
 ```bash

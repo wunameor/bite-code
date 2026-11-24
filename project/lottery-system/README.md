@@ -231,12 +231,37 @@ ADMIN_PASSWORD='你的密码' \
 
 ### 1. 准备代码和配置
 
+仓库是 monorepo，服务器上只检出 `project/lottery-system` 子目录，不下载其他子项目：
+
 ```bash
-git clone <你的仓库地址> /opt/lottery-system
-cd /opt/lottery-system
+git clone --depth 1 --filter=blob:none --sparse \
+  https://gitee.com/wunameor/bite-code.git /opt/bite-code
+cd /opt/bite-code
+git sparse-checkout set project/lottery-system
+
+cd project/lottery-system
 cp .env.example .env
 chmod 600 .env
 vi .env
+```
+
+GitHub 把地址换成 `https://github.com/wunameor/bite-code.git`。
+
+如果 Gitee 不支持 `--filter=blob:none`，改用下面的兜底命令（首次会下载整个仓库 HEAD，但工作区仍然只有这个子目录）：
+
+```bash
+git clone --depth 1 https://gitee.com/wunameor/bite-code.git /opt/bite-code
+cd /opt/bite-code
+git sparse-checkout init --cone
+git sparse-checkout set project/lottery-system
+```
+
+之后所有部署命令都在 `/opt/bite-code/project/lottery-system` 执行。`.env` 被 `.gitignore` 忽略，不会随仓库带过来，必须自己创建。
+
+确认当前只检出该目录：
+
+```bash
+git sparse-checkout list
 ```
 
 `.env` 必须修改：
@@ -277,12 +302,26 @@ http://<服务器IP>:26000/blogin.html
 
 ### 4. 常用命令
 
+以下命令都在 `/opt/bite-code/project/lottery-system` 执行：
+
 ```bash
 docker compose ps                       # 查看状态和健康检查
 docker compose logs -f app              # 应用日志
 docker compose restart app              # 只重启应用
-docker compose build app && docker compose up -d app   # 拉代码后重新构建上线
 ```
+
+拉取代码并重新构建上线：
+
+```bash
+cd /opt/bite-code
+git pull --ff-only
+
+cd project/lottery-system
+docker compose build app
+docker compose up -d app
+```
+
+稀疏检出配置会保存在 `.git/info/sparse-checkout`，`git pull` 只更新 `project/lottery-system`，其他子项目不会被检出。
 
 ## 定期重置演示数据
 
@@ -305,7 +344,7 @@ docker compose build app && docker compose up -d app   # 拉代码后重新构�
 每天凌晨 4 点自动重置：
 
 ```cron
-0 4 * * * cd /opt/lottery-system && ./deploy/reset-demo-data.sh --yes >> /var/log/lottery-reset.log 2>&1
+0 4 * * * cd /opt/bite-code/project/lottery-system && ./deploy/reset-demo-data.sh --yes >> /var/log/lottery-reset.log 2>&1
 ```
 
 运行脚本的账号需要在 `docker` 组里。

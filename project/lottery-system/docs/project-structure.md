@@ -1206,6 +1206,27 @@ MAIL_USERNAME/MAIL_PASSWORD   # 可选，不配则中奖邮件通知进入 DLQ
 
 演示奖品图片不放 `uploads/`，而是放在 `src/main/resources/static/pic/demo`，数据库里保存 `/pic/demo/*.svg` 相对路径；删除项目目录和卷即可完全清理，不会污染其他环境。
 
+### 14.5 服务器代码检出
+
+仓库是 monorepo，服务器只检出当前子项目：
+
+```bash
+git clone --depth 1 --filter=blob:none --sparse \
+  https://gitee.com/wunameor/bite-code.git /opt/bite-code
+cd /opt/bite-code
+git sparse-checkout set project/lottery-system
+```
+
+- 部署目录固定为 `/opt/bite-code/project/lottery-system`。
+- `git pull` 只更新该子目录，其他子项目不会出现在工作区。
+- Gitee 若拒绝 `--filter=blob:none`，去掉该参数，改用 `git sparse-checkout init --cone` 后执行 `git sparse-checkout set project/lottery-system`。
+- `.env` 被 `.gitignore` 忽略，不会随检出带过来。
+- 定时重置的 cron 路径必须指向该子目录：
+
+```cron
+0 4 * * * cd /opt/bite-code/project/lottery-system && ./deploy/reset-demo-data.sh --yes >> /var/log/lottery-reset.log 2>&1
+```
+
 ## 15. 测试目录说明
 
 ```text
