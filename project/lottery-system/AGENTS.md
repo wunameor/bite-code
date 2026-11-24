@@ -95,10 +95,12 @@ mvn spring-boot:run "-Dspring-boot.run.arguments=--server.port=18080"
 云服务器一键部署（构建在服务器上完成，不上传 jar）：
 
 ```bash
-bash <(curl -fsSL https://gitee.com/wunameor/bite-code/raw/master/project/lottery-system/deploy/install-server.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/wunameor/bite-code/master/project/lottery-system/deploy/install-server.sh)
 ```
 
 - `deploy/install-server.sh`：稀疏检出 monorepo 到 `/var/lib/lottery-system/repo`，创建软链接 `/www/bite/lottery-system`，再调用 `deploy-server.sh`。
+- 默认仓库是 GitHub；服务器访问 GitHub 慢时可用 `REPO_URL=https://gitee.com/wunameor/bite-code.git` 覆盖。
+- 缓存仓库地址与 `REPO_URL` 不一致时，脚本会先备份 `.env`，再重新稀疏检出并恢复。
 - `deploy/deploy-server.sh`：生成 `.env`（已存在不覆盖）、构建镜像、`docker compose up -d`、等待健康检查、首次创建管理员并导入演示数据。
 - 部署路径固定为 `/www/bite/lottery-system`，所有 compose 和 `deploy/*.sh` 命令都在该目录执行。
 - 更新代码：`cd /www/bite/lottery-system && ./deploy/install-server.sh`；需要重置演示数据时加 `--reset-demo`。

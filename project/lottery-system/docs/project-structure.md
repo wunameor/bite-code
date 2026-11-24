@@ -1213,7 +1213,7 @@ MAIL_USERNAME/MAIL_PASSWORD   # 可选，不配则中奖邮件通知进入 DLQ
 仓库是 monorepo，服务器只检出当前子项目，并把它固定映射到 `/www/bite/lottery-system`：
 
 ```bash
-bash <(curl -fsSL https://gitee.com/wunameor/bite-code/raw/master/project/lottery-system/deploy/install-server.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/wunameor/bite-code/master/project/lottery-system/deploy/install-server.sh)
 ```
 
 目录关系：
@@ -1226,11 +1226,12 @@ bash <(curl -fsSL https://gitee.com/wunameor/bite-code/raw/master/project/lotter
 `deploy/install-server.sh` 负责：
 
 - 首次：`git clone --depth 1 --filter=blob:none --sparse` 到缓存目录，再 `git sparse-checkout set project/lottery-system`；
-- 后续：`git pull --ff-only` 更新缓存；
+- 后续：先补齐稀疏规则，再 `git pull --ff-only`，拉取后再次确保子目录已检出（上次中断留下的缓存也能自动修复）；
+- 缓存 `origin` 与 `REPO_URL` 不一致时，备份 `.env` 后重新稀疏检出，再恢复 `.env`；
 - 创建或修复固定路径软链接；
 - 调用 `deploy/deploy-server.sh`，参数原样传递。
 
-Gitee 若拒绝 `--filter=blob:none`，脚本会自动退回不带 filter 的浅克隆。
+默认仓库是 GitHub。Gitee 若拒绝 `--filter=blob:none`，脚本会自动退回不带 filter 的浅克隆；GitHub 访问慢时可设置 `REPO_URL=https://gitee.com/wunameor/bite-code.git` 改用镜像。
 
 `deploy/deploy-server.sh` 负责：
 

@@ -234,7 +234,7 @@ ADMIN_PASSWORD='你的密码' \
 仓库是 monorepo，脚本只检出 `project/lottery-system`，并把它固定映射到 `/www/bite/lottery-system`：
 
 ```bash
-bash <(curl -fsSL https://gitee.com/wunameor/bite-code/raw/master/project/lottery-system/deploy/install-server.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/wunameor/bite-code/master/project/lottery-system/deploy/install-server.sh)
 ```
 
 脚本会依次完成：
@@ -252,20 +252,21 @@ bash <(curl -fsSL https://gitee.com/wunameor/bite-code/raw/master/project/lotter
 /var/lib/lottery-system/repo    # 稀疏检出的 monorepo，只下载 lottery-system 子目录
 ```
 
-`/www/bite/lottery-system` 是软链接，真正的代码在 `/var/lib/lottery-system/repo`。不要删除这个缓存目录，否则固定路径会失效。
+`/www/bite/lottery-system` 是软链接，真正的代码在 `/var/lib/lottery-system/repo`。缓存目录可以删掉重建，脚本会先备份再恢复 `.env`；只是重建期间软链接会短暂失效。
 
 不想直接执行远程脚本时，可以先下载检查：
 
 ```bash
-curl -fsSL https://gitee.com/wunameor/bite-code/raw/master/project/lottery-system/deploy/install-server.sh -o /tmp/install-server.sh
+curl -fsSL https://raw.githubusercontent.com/wunameor/bite-code/master/project/lottery-system/deploy/install-server.sh -o /tmp/install-server.sh
 less /tmp/install-server.sh
 bash /tmp/install-server.sh
 ```
 
-GitHub 把 raw 地址换成：
+服务器访问 GitHub 较慢时，改走 Gitee 镜像（脚本会从 Gitee 检出代码）：
 
-```text
-https://raw.githubusercontent.com/wunameor/bite-code/master/project/lottery-system/deploy/install-server.sh
+```bash
+REPO_URL=https://gitee.com/wunameor/bite-code.git \
+  bash <(curl -fsSL https://gitee.com/wunameor/bite-code/raw/master/project/lottery-system/deploy/install-server.sh)
 ```
 
 脚本首次生成的 `.env` 已经在 `/www/bite/lottery-system/.env`，需要调整端口或邮件配置时直接编辑它：
