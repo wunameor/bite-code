@@ -100,6 +100,7 @@ if [[ ! -f .env ]]; then
     chmod 600 .env
     echo "[deploy] 已生成 .env：随机密码和 JWT_SECRET 已写入，权限 600"
 else
+    sed -i 's/\r$//' .env
     chmod 600 .env 2>/dev/null || true
     echo "[deploy] 使用已有 .env"
 fi
