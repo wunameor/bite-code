@@ -65,31 +65,55 @@ mvn spring-boot:run
 
 # E2E 推荐使用独立端口，避免和 8080 旧实例冲突
 mvn spring-boot:run "-Dspring-boot.run.arguments=--server.port=18080"
+
+# 云服务器构建并启动（应用对外端口 26000）
+docker compose build app
+docker compose up -d
+
+# 首次部署创建管理员（不会覆盖已有管理员）
+ADMIN_EMAIL=you@example.com ADMIN_PHONE=13800000000 ./deploy/bootstrap-admin.sh
+
+# 重置演示数据，管理员保留
+./deploy/reset-demo-data.sh --yes
 ```
 
 说明：
 
 - `EmailCodeServiceTest` 依赖 Redis，部分测试还可能发送邮件。
 - RabbitMQ 和 Redis 需要本地端口转发或对应服务可用。
-- 当前 `application.yaml` 中本地默认关闭抽奖补偿扫描，避免定时 SQL 日志刷屏。
+- 本地默认走 `application-local.yaml`，其中关闭抽奖补偿扫描，避免定时 SQL 日志刷屏。
+- `deploy/*.sh` 面向 Linux 服务器，需要 Docker Compose v2 和 `docker` 组权限。
 
 ## 4. 根目录结构
 
 ```text
 project/lottery-system
-├── .gitignore                         # Git 忽略规则：target、logs、uploads、IDE 配置等
-├── docs                               # 项目文档目录
-│   └── project-structure.md           # 本文档：项目结构和职责说明
-├── logs                               # 运行日志目录，由 Spring Boot 日志配置产生
-├── pom.xml                            # Maven 工程配置和依赖管理
-├── sql                                # 数据库脚本目录
-│   ├── draw-async.sql                 # 抽奖异步任务表、winning_record 唯一键脚本
-│   └── init-admin.sql                 # 默认管理员账号初始化脚本，仅用于开发环境
-├── src                                # 源码目录
-│   ├── main                           # 主代码与主资源
-│   └── test                           # 测试代码
-├── target                             # Maven 构建产物目录
-└── uploads                            # 本地图片上传目录
+├── .dockerignore                       # 构建镜像时排除 target、logs、uploads、.env 等
+├── .env.example                        # 云服务器环境变量模板，复制为 .env 后使用
+├── .gitignore                          # Git 忽略规则：target、logs、uploads、.env、IDE 配置等
+├── Dockerfile                          # 多阶段构建：容器内 mvn package -> temurin JRE 运行
+├── deploy                              # 部署与运维脚本
+│   ├── bootstrap-admin.sh              # 首次部署创建管理员，仅在无管理员时插入
+│   ├── maven-settings.xml              # 构建期 Maven 国内镜像配置
+│   └── reset-demo-data.sh              # 重置演示数据，保留管理员
+├── docker-compose.yml                  # MySQL、Redis、RabbitMQ、应用四服务编排
+├── docs                                # 项目文档目录
+│   └── project-structure.md            # 本文档：项目结构和职责说明
+├── logs                                # 运行日志目录，由 Spring Boot 日志配置产生
+├── pom.xml                             # Maven 工程配置和依赖管理
+├── sql                                 # 数据库脚本目录
+│   ├── schema.sql                      # 完整建表，可重复执行；compose 首次初始化使用
+│   ├── demo-data.sql                   # 演示数据：用户、奖品、活动、中奖记录
+│   ├── reset-demo-data.sql             # 重置：删除普通用户和业务表，管理员不动
+│   ├── verify-demo-data.sql            # 校验：返回空结果表示演示数据有效
+│   ├── draw-async.sql                  # 历史库升级脚本
+│   ├── init-admin.sql                  # 开发环境默认管理员，禁止用于服务器
+│   └── lottery_system.sql              # 早期整库导出，含 DROP DATABASE，仅留档
+├── src                                 # 源码目录
+│   ├── main                            # 主代码与主资源
+│   └── test                            # 测试代码
+├── target                              # Maven 构建产物目录
+└── uploads                             # 本地图片上传目录
 ```
 
 ## 5. 源码包总体结构
@@ -154,7 +178,9 @@ src/main/java/com/wunamor/lotterysystem
 
 ```text
 src/main/resources
-├── application.yaml                   # 应用主配置：数据源、Redis、RabbitMQ、邮件、上传、补偿任务、日志、MyBatis-Plus
+├── application.yaml                   # 公共配置：应用名、profile 默认值、邮件、上传、日志滚动、MyBatis-Plus
+├── application-local.yaml             # 本地配置：127.0.0.1 数据源、打印 SQL、补偿默认关闭
+├── application-cloud.yaml             # 云服务器配置：容器服务名、关闭 SQL 日志、补偿开启
 ├── mapper                             # MyBatis XML Mapper 文件目录
 │   ├── ActivityPrizeMapper.xml        # activity_prize 批量插入
 │   ├── ActivityUserMapper.xml         # activity_user 批量插入
@@ -176,6 +202,7 @@ src/main/resources
     ├── css                            # 页面样式目录
     ├── js                             # 页面脚本目录
     └── pic                            # 页面图片资源目录
+        └── demo                       # 演示奖品图片，数据库只保存 /pic/demo/*.svg 相对路径
 ```
 
 ## 7. `src/test/java` 目录结构
@@ -387,7 +414,7 @@ common/pojo
 ```text
 common/utils
 ├── JacksonUtil.java                   # JSON 序列化和反序列化
-├── JWTUtil.java                       # JWT 生成和解析
+├── JWTUtil.java                       # JWT 生成和解析；密钥优先读 JWT_SECRET 环境变量
 ├── MailUtil.java                      # 邮件发送工具，只负责发送，不承载业务
 ├── RedisKeyUtil.java                  # Redis key 统一生成；活动详情 key 为 lottery:activity:detail:v3:{id}
 ├── RedisUtil.java                     # Redis 操作封装
@@ -399,6 +426,7 @@ common/utils
 - `MailUtil` 不知道“中奖通知”是什么，只提供邮件发送能力。
 - `RedisUtil` 不知道业务 key 含义，只提供通用 Redis 操作。
 - `RedisKeyUtil` 负责 key 命名规则。
+- `JWTUtil` 的签名密钥允许通过 `JWT_SECRET` 注入；未注入时回退到仓库默认值，仅适合本地开发。
 
 ## 9. `controller` 包说明
 
@@ -819,21 +847,51 @@ service/mq
 
 ## 12. 资源目录文件说明
 
-### 12.1 `application.yaml`
+### 12.1 配置文件分层
 
-`application.yaml` 是项目主配置文件。
-
-主要配置区域：
+配置按环境拆成三个文件：
 
 ```text
-spring.datasource                      # MySQL 连接
-spring.data.redis                      # Redis 连接
-spring.rabbitmq                        # RabbitMQ 连接、消费重试、DLQ 基础策略
-spring.mail                            # SMTP 邮件配置
-lottery.draw.compensation              # 抽奖异步任务补偿配置
-lottery.upload                         # 文件上传配置
-logging                                # 日志文件配置
-mybatis-plus                           # MyBatis-Plus 配置
+application.yaml         # 公共配置：所有环境一致的部分
+application-local.yaml   # 本地开发：127.0.0.1、打印 SQL、补偿默认关闭
+application-cloud.yaml   # 云服务器：容器服务名、关闭 SQL 日志、补偿开启
+```
+
+`application.yaml` 里用 `spring.profiles.default: local` 指定默认 profile，本地和测试不需要额外参数；容器由 `docker-compose.yml` 注入 `SPRING_PROFILES_ACTIVE=cloud`。
+
+公共配置区域：
+
+```text
+spring.application                       # 应用名
+spring.profiles.default                  # 默认 profile
+spring.servlet.multipart                 # 上传大小限制
+spring.mail                              # SMTP 邮件配置
+lottery.draw.compensation.*              # 补偿阈值（enabled 由各 profile 覆盖）
+lottery.upload.url-prefix / max-size     # 上传访问前缀和限制
+logging.logback.rollingpolicy            # 日志滚动
+mybatis-plus                             # MyBatis-Plus 基础配置
+```
+
+环境相关配置区域（在 local / cloud 两个文件中）：
+
+```text
+spring.datasource                        # MySQL 连接
+spring.data.redis                        # Redis 连接
+spring.rabbitmq                          # RabbitMQ 连接、消费重试、DLQ 基础配置
+server.*                                 # 端口、反向代理头
+lottery.draw.compensation.enabled        # 补偿开关
+lottery.upload.dir                       # 上传目录
+logging.file.name                        # 日志文件路径
+mybatis-plus.configuration.log-impl      # 是否打印 SQL
+```
+
+数据库连接使用环境变量占位，方便在临时库上做验证：
+
+```text
+DB_HOST  DB_PORT  DB_NAME  DB_USERNAME  DB_PASSWORD
+REDIS_HOST  REDIS_PORT
+RABBITMQ_HOST  RABBITMQ_PORT  RABBITMQ_USERNAME  RABBITMQ_PASSWORD  RABBITMQ_VHOST
+COMPENSATION_ENABLED
 ```
 
 抽奖补偿配置：
@@ -851,11 +909,17 @@ lottery:
 
 说明：
 
-- `enabled: false` 是本地默认值，用于避免补偿任务每 30 秒查询 `draw_request`。
+- 本地默认关闭补偿，用于避免补偿任务每 30 秒查询 `draw_request`。
 - 要验证补偿逻辑时改成 `true`，或者启动时覆盖：
 
 ```bash
 mvn spring-boot:run "-Dspring-boot.run.arguments=--lottery.draw.compensation.enabled=true"
+```
+
+云上默认开启：
+
+```bash
+COMPENSATION_ENABLED=false docker compose up -d app   # 临时关闭
 ```
 
 文件上传配置：
@@ -863,7 +927,7 @@ mvn spring-boot:run "-Dspring-boot.run.arguments=--lottery.draw.compensation.ena
 ```yaml
 lottery:
   upload:
-    dir: ${user.dir}/uploads
+    dir: ${user.dir}/uploads   # 本地；云上为 /app/uploads
     url-prefix: /uploads
     max-size: 5MB
     allowed-extensions:
@@ -957,20 +1021,29 @@ renyuan-0.png                          # 人员菜单未选中图标
 
 ```text
 sql
-├── draw-async.sql
-└── init-admin.sql
+├── schema.sql             # 完整建表，只创建缺失的表，可重复执行
+├── demo-data.sql          # 演示数据
+├── reset-demo-data.sql    # 重置业务数据，保留管理员
+├── verify-demo-data.sql   # 校验演示数据一致性
+├── draw-async.sql         # 历史库升级脚本
+├── init-admin.sql         # 开发环境默认管理员，禁止用于服务器
+└── lottery_system.sql     # 早期整库导出，含 DROP DATABASE，仅留档
 ```
+
+`schema.sql` 是当前的表结构唯一入口，包含 `activity`、`activity_prize`、`activity_user`、`prize`、`user`、`winning_record`、`draw_request` 七张表。新增表或字段时必须同步修改这个文件，否则重置后的库和代码不一致。
 
 ### 13.1 `sql/draw-async.sql`
 
 用途：
 
-- 创建 `draw_request` 表。
+- 给已有的历史库补建 `draw_request` 表。
 - 为 `winning_record` 增加唯一约束：
 
 ```text
 uk_w_a_id (winner_id, activity_id)
 ```
+
+- 新库不需要执行该脚本，`schema.sql` 已包含同样的表和约束。
 
 `draw_request` 的核心字段：
 
@@ -1014,21 +1087,139 @@ idx_activity_prize        (activity_id, prize_id)
 - `password` 字段存储 SHA-256 后的值。
 - `phone_number` 字段存储项目 AES key 加密后的 hex 值。
 - 脚本使用 `INSERT IGNORE`，可重复执行。
+- 该脚本会把管理员密码写成 `12345678`，只允许本机使用；服务器管理员由 `deploy/bootstrap-admin.sh` 创建。
 
-## 14. 测试目录说明
+### 13.3 `sql/demo-data.sql`
+
+固定 id 的演示数据，必须在业务表为空时执行：
+
+```text
+普通用户    9001-9020，共 20 人，password 为空，手机号用 MySQL AES_ENCRYPT 生成密文
+奖品        101-106，共 6 个，图片为 /pic/demo/*.svg
+活动        201 进行中（6 个奖项全部 PENDING）
+            202 已结束（6 个奖项全部 DRAWN，13 条中奖记录）
+            203 进行中（二等奖 DRAWN、三等奖 PENDING）
+活动奖品    301-314
+活动人员    4001-4050
+中奖记录    501-515
+```
+
+手机号密文与 `EncryptTypeHandler` 保持一致：
+
+```sql
+LOWER(HEX(AES_ENCRYPT('13900000001', '1234567890abcdef')))
+```
+
+`sql/verify-demo-data.sql` 会用 `AES_DECRYPT` 反解校验，确保这些值能被应用正常解密。
+
+### 13.4 `sql/reset-demo-data.sql`
+
+重置的第一步：
+
+```sql
+DELETE FROM `user` WHERE `identity` <> '0' OR `identity` IS NULL;
+DROP TABLE IF EXISTS draw_request / winning_record / activity_user / activity_prize / activity / prize;
+```
+
+- 管理员行（`identity = '0'`）不参与删除，因此 id、密码摘要、邮箱、手机号、更新时间全部保留。
+- 业务表整表删除，由 `schema.sql` 按当前代码重建，顺带完成表结构升级。
+
+### 13.5 `sql/verify-demo-data.sql`
+
+只读校验脚本，结果为空表示数据有效。覆盖以下不变式：
+
+```text
+各表行数符合演示数据预期
+重置后 draw_request 必须为空
+进行中活动的奖项状态与中奖记录数量一致
+DRAWN 奖品的中奖人数等于名额；PENDING 奖品不能有中奖记录
+已完成活动不能残留 PENDING 人员
+中奖记录的 winner 必须是该活动的 WINNER 人员
+活动奖品、活动人员引用的主键必须存在
+演示用户手机号密文可解密为合法 11 位号码
+```
+
+### 13.6 重置执行顺序
+
+`deploy/reset-demo-data.sh` 严格按顺序执行，任何一步失败都会中止：
+
+```text
+1. 检查管理员数量 > 0，且没有管理员 id 落在 9001-9020
+2. docker compose stop app
+3. sql/reset-demo-data.sql     删除普通用户和业务表
+4. sql/schema.sql              重建业务表
+5. sql/demo-data.sql           导入演示数据
+6. 删除 Redis lottery:activity:detail:v3:* 缓存
+7. purge RabbitMQ 命令队列、通知队列和两个 DLQ
+8. sql/verify-demo-data.sql    校验，非空即失败
+9. docker compose start app    仅在校验通过后启动
+```
+
+## 14. Docker 部署说明
+
+### 14.1 服务编排
+
+```text
+docker-compose.yml
+├── mysql       mysql:8.0                    数据卷 mysql-data，首次启动执行 sql/schema.sql
+├── redis       redis:7-alpine               数据卷 redis-data，AOF 持久化
+├── rabbitmq    rabbitmq:3.13-management     数据卷 rabbitmq-data，vhost lottery
+└── app         本地 Dockerfile 构建          数据卷 app-uploads、app-logs
+```
+
+只有 `app` 映射宿主机端口，默认 `26000:8080`，由 `.env` 中 `APP_PORT` 控制。MySQL、Redis、RabbitMQ 不暴露端口，只在 `lottery-net` 内部网络访问。
+
+### 14.2 镜像构建
+
+```text
+Dockerfile
+阶段 1  maven:3.9-eclipse-temurin-17   构建镜像内执行 mvn package，产出 target/lottery-system.jar
+阶段 2  eclipse-temurin:17-jre-jammy   非 root 用户 app 运行，TZ=Asia/Shanghai
+```
+
+- `pom.xml` 里 `finalName=lottery-system`，Dockerfile 不依赖版本号。
+- `deploy/maven-settings.xml` 把中央仓库指向阿里云镜像，配合 BuildKit 的 `/root/.m2/repository` 缓存挂载，服务器重复构建不会重复下载依赖。
+- `.dockerignore` 排除 `target`、`logs`、`uploads`、`.env`、`docs`，构建上下文保持精简。
+- 构建完全在服务器执行，本地不需要 JDK，也不需要上传 jar。
+
+### 14.3 密钥和敏感信息
+
+```text
+.env                     # 不提交，权限建议 600
+JWT_SECRET               # 必填，compose 用 ${JWT_SECRET:?} 强制校验
+MYSQL_ROOT_PASSWORD      # 必填
+DB_PASSWORD              # 必填
+RABBITMQ_PASSWORD        # 必填
+MAIL_USERNAME/MAIL_PASSWORD   # 可选，不配则中奖邮件通知进入 DLQ
+```
+
+`JWT_SECRET` 缺失时应用直接启动失败，避免使用仓库里的默认密钥导致令牌可被伪造。
+
+### 14.4 服务器构建产物目录
+
+容器内的持久化目录都是命名卷，不在项目目录下留下数据：
+
+```text
+/app/uploads   -> 卷 app-uploads
+/app/logs      -> 卷 app-logs
+```
+
+演示奖品图片不放 `uploads/`，而是放在 `src/main/resources/static/pic/demo`，数据库里保存 `/pic/demo/*.svg` 相对路径；删除项目目录和卷即可完全清理，不会污染其他环境。
+
+## 15. 测试目录说明
 
 ```text
 src/test/java/com/wunamor/lotterysystem
 ```
 
-### 14.1 根测试
+### 15.1 根测试
 
 ```text
 LotterySystemApplicationTests.java     # 验证 Spring Boot 上下文是否能正常加载
 LogTest.java                           # 日志相关测试
 ```
 
-### 14.2 `common` 测试
+### 15.2 `common` 测试
 
 ```text
 common/interceptor/LoginInterceptorTest.java
@@ -1041,14 +1232,14 @@ common/utils/JacksonUtilTest.java
 # 验证 JacksonUtil JSON 转换能力
 ```
 
-### 14.3 `mapper` 测试
+### 15.3 `mapper` 测试
 
 ```text
 mapper/UserMapperTest.java
 # 验证用户数据访问，重点关注手机号加密字段读写
 ```
 
-### 14.4 `service` 测试
+### 15.4 `service` 测试
 
 ```text
 service/ActivityCacheServiceImplTest.java
@@ -1076,7 +1267,7 @@ service/WinningRecordServiceImplTest.java
 # 验证中奖记录查询
 ```
 
-### 14.5 `service/draw/state` 测试
+### 15.5 `service/draw/state` 测试
 
 ```text
 service/draw/state/DrawStateUpdaterChainTest.java
@@ -1087,7 +1278,7 @@ service/draw/state/DrawStateUpdaterChainTest.java
 # 4. shouldExecute=false 时跳过
 ```
 
-### 14.6 `service/mq/consumer` 测试
+### 15.6 `service/mq/consumer` 测试
 
 ```text
 service/mq/consumer/DrawCommandListenerTest.java
@@ -1097,9 +1288,9 @@ service/mq/consumer/DrawNotifyListenerTest.java
 # 验证中奖通知消费者发送邮件；邮件失败时拒绝消息进入死信队列
 ```
 
-## 15. 抽奖异步主链路
+## 16. 抽奖异步主链路
 
-### 15.1 前端到提交任务
+### 16.1 前端到提交任务
 
 ```text
 draw.html
@@ -1124,7 +1315,7 @@ draw.html
 - 奖品没抽满前停留在当前奖品，抽满后才允许进入下一奖品。
 - 活动详情默认优先读 Redis；只有状态异常需要恢复时才传 `fresh=true` 回源数据库。
 
-### 15.2 MQ 命令消费
+### 16.2 MQ 命令消费
 
 ```text
 RabbitMQ draw command queue
@@ -1145,7 +1336,7 @@ RabbitMQ draw command queue
 - 业务失败写 `FAILED`。
 - 技术失败抛出，交给 Spring AMQP 重试、DLQ 和补偿。
 
-### 15.3 抽奖事务
+### 16.3 抽奖事务
 
 ```text
 DrawPrizeService.drawPrize()
@@ -1179,7 +1370,7 @@ ACTIVITY      ActivityUserNotWonUpdater      (order 10)
 DRAW_REQUEST  DrawRequestSuccessUpdater
 ```
 
-### 15.4 提交后缓存重建和通知
+### 16.4 提交后缓存重建和通知
 
 ```text
 DrawPrizeServiceImpl.afterCommit()
@@ -1199,7 +1390,7 @@ DrawPrizeServiceImpl.afterCommit()
 - 邮件发送失败不影响抽奖结果。
 - 通知消息在抽奖事务提交后投递。
 
-## 16. 补偿任务链路
+## 17. 补偿任务链路
 
 补偿逻辑在：
 
@@ -1240,9 +1431,9 @@ PROCESSING
 3. PROCESSING 超过 processing-timeout 的任务重置为 PENDING 并重新投递
 ```
 
-## 17. MQ 配置和常量分层
+## 18. MQ 配置和常量分层
 
-### 17.1 公共配置
+### 18.1 公共配置
 
 ```text
 common/config/RabbitMqConfig.java
@@ -1256,7 +1447,7 @@ common/config/RabbitMqConfig.java
 - dead-letter exchange。
 - dead-letter queue。
 
-### 17.2 公共常量
+### 18.2 公共常量
 
 ```text
 common/constants/RabbitMqConstants.java
@@ -1269,7 +1460,7 @@ common/constants/RabbitMqConstants.java
 - routing key。
 - DLQ 名称。
 
-### 17.3 业务适配
+### 18.3 业务适配
 
 ```text
 service/mq/producer
@@ -1284,7 +1475,7 @@ service/mq/consumer
 - 抽奖业务生产者。
 - 抽奖业务消费者。
 
-## 18. 运行期目录说明
+## 19. 运行期目录说明
 
 这些目录不是项目源码结构的核心内容，文档不展开每个文件。
 
@@ -1295,21 +1486,27 @@ target/
 # 每次 mvn clean 或 mvn test 都可能变化。
 
 logs/
-# 应用运行日志。
-# 当前 logging.file.name=logs/springboot.log。
+# 本地运行日志目录，logging.file.name=logs/springboot.log。
+# 云上写到容器内 /app/logs，由 app-logs 命名卷持久化。
 
 uploads/
 # 本地上传文件目录。
 # 当前主要存奖品图片。
 # 路径形如：uploads/prize/yyyy/MM/dd/uuid.png。
 # 数据库只保存访问 URL，例如：/uploads/prize/yyyy/MM/dd/uuid.png。
+# 云上挂载在容器内 /app/uploads，由 app-uploads 命名卷持久化。
+# 演示奖品图片不在这里，而是在 src/main/resources/static/pic/demo。
+
+.env
+# 云服务器环境变量文件，由 .env.example 复制而来，已被 .gitignore 忽略。
+# 包含数据库密码、RabbitMQ 密码、JWT_SECRET，禁止提交。
 
 .idea/
 # IntelliJ IDEA 本地工程配置。
 # 不属于源码，通常由 .gitignore 忽略。
 ```
 
-## 19. 分层依赖规则
+## 20. 分层依赖规则
 
 当前项目推荐的依赖方向：
 
@@ -1333,7 +1530,7 @@ consumer 承载抽奖事务和核心状态流转
 状态更新链承载资格校验、缓存清理、邮件发送
 ```
 
-## 20. 文档维护建议
+## 21. 文档维护建议
 
 后续如果新增包或目录，建议按下面顺序更新本文：
 

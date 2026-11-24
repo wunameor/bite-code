@@ -25,6 +25,7 @@ Redis
 RabbitMQ
 JWT
 静态 HTML + jQuery + Bootstrap
+Docker Compose（云服务器部署，应用在服务器上构建）
 ```
 
 ## 环境要求
@@ -41,23 +42,38 @@ JWT
 
 如果需要使用邮箱验证码和中奖邮件，需要配置 SMTP 邮箱账号和授权码。
 
-## 配置说明
+### 容器部署
 
-项目主配置文件：
+不使用本机 JDK / Maven / MySQL 时，只需要：
 
 ```text
-src/main/resources/application.yaml
+Docker Engine
+Docker Compose v2
 ```
+
+详见「Docker Compose 部署（云服务器）」。
+
+## 配置说明
+
+配置按环境拆成三份：
+
+```text
+src/main/resources/application.yaml         # 公共配置：邮件、上传、MyBatis、日志滚动
+src/main/resources/application-local.yaml   # 本地开发：127.0.0.1，打印 SQL，补偿默认关闭
+src/main/resources/application-cloud.yaml   # 云服务器：容器服务名，关闭 SQL 日志，补偿默认开启
+```
+
+默认启用 `local`。容器里由 compose 注入 `SPRING_PROFILES_ACTIVE=cloud`，不需要改代码。
 
 ### 数据库
 
-默认连接：
+本地默认连接：
 
 ```yaml
 spring:
   datasource:
-    url: jdbc:mysql://127.0.0.1:3306/lottery_system?characterEncoding=utf8&useSSL=true
-    username: root
+    url: jdbc:mysql://${DB_HOST:127.0.0.1}:${DB_PORT:3306}/${DB_NAME:lottery_system}?characterEncoding=utf8&useSSL=true
+    username: ${DB_USERNAME:root}
     password: "123456"
 ```
 
@@ -70,26 +86,31 @@ lottery_system
 当前仓库内的 SQL 脚本：
 
 ```text
-sql/init-admin.sql
-sql/draw-async.sql
+sql/schema.sql             # 完整建表，只创建缺失的表，可重复执行
+sql/demo-data.sql          # 演示数据：20 个普通用户、6 个奖品、3 个活动、15 条中奖记录
+sql/reset-demo-data.sql    # 重置用：删除普通用户和业务表，管理员不动
+sql/verify-demo-data.sql   # 校验用：结果为空表示演示数据有效
+sql/draw-async.sql         # 历史库升级脚本：补 draw_request 表和中奖唯一约束
+sql/init-admin.sql         # 仅本地开发：固定密码 admin/12345678，不要在服务器上使用
+sql/lottery_system.sql     # 早期整库导出，含 DROP DATABASE，仅留档，不要用于重置
 ```
 
 说明：
 
-- `init-admin.sql` 初始化默认管理员账号。
-- `draw-async.sql` 创建抽奖异步任务表，并为中奖记录表增加一个用户在一个活动内只能中一个奖的唯一约束。
-- 如果你的环境还没有完整业务表，需要先导入已有数据库结构，再执行这些脚本。
+- 新项目初始化：`mysql -u root -p -D lottery_system < sql/schema.sql`。
+- 云服务器首次部署由 MySQL 容器自动执行 `sql/schema.sql`。
+- 重置演示数据统一使用 `deploy/reset-demo-data.sh`，不要用 `lottery_system.sql`。
 
 ### Redis
 
-默认连接本地 Redis：
+本地默认连接：
 
 ```yaml
 spring:
   data:
     redis:
-      host: 127.0.0.1
-      port: 6379
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:6379}
 ```
 
 ### RabbitMQ
@@ -177,9 +198,11 @@ mvn spring-boot:run
 mvn spring-boot:run "-Dspring-boot.run.arguments=--server.port=18080"
 ```
 
-## 默认账号
+## 管理员账号
 
-初始化脚本 `sql/init-admin.sql` 会创建开发环境管理员账号：
+### 本地开发
+
+`sql/init-admin.sql` 创建的是开发账号，仅适合本机：
 
 ```text
 用户名：admin
@@ -188,7 +211,122 @@ mvn spring-boot:run "-Dspring-boot.run.arguments=--server.port=18080"
 手机号：13800000000
 ```
 
-该账号只建议用于本地开发，不建议用于生产环境。
+### 云服务器
+
+服务器上不要执行 `init-admin.sql`。首次部署后用 `deploy/bootstrap-admin.sh` 创建管理员，密码由你自己提供，只以 SHA-256 摘要写入数据库：
+
+```bash
+ADMIN_NAME=admin \
+ADMIN_EMAIL=you@example.com \
+ADMIN_PHONE=13800000000 \
+ADMIN_PASSWORD='你的密码' \
+  ./deploy/bootstrap-admin.sh
+```
+
+脚本只在「数据库中还没有任何管理员」时插入。已经存在管理员时直接跳过，不会重置密码。密码规则与后端一致：6-12 位字母或数字。
+
+## Docker Compose 部署（云服务器）
+
+对外只暴露应用端口 `26000`，MySQL、Redis、RabbitMQ 只在容器内部网络里，不映射到宿主机。
+
+### 1. 准备代码和配置
+
+```bash
+git clone <你的仓库地址> /opt/lottery-system
+cd /opt/lottery-system
+cp .env.example .env
+chmod 600 .env
+vi .env
+```
+
+`.env` 必须修改：
+
+```text
+MYSQL_ROOT_PASSWORD   MySQL root 密码
+DB_PASSWORD           应用连接 MySQL 的密码
+RABBITMQ_PASSWORD     RabbitMQ 密码
+JWT_SECRET            JWT 密钥，生成：openssl rand -base64 32
+APP_PORT              公网端口，默认 26000
+```
+
+`JWT_SECRET` 未设置时容器会启动失败，避免使用仓库里的默认密钥。
+
+### 2. 在服务器上构建并启动
+
+Maven 构建在容器内完成，本地不需要装 JDK，也不需要上传 jar：
+
+```bash
+docker compose build app
+docker compose up -d
+```
+
+依赖下载走 `deploy/maven-settings.xml` 里的阿里云镜像，Maven 仓库使用 BuildKit 缓存挂载，第二次构建不会重复下载。
+
+### 3. 初始化管理员和演示数据
+
+```bash
+ADMIN_EMAIL=you@example.com ADMIN_PHONE=13800000000 ./deploy/bootstrap-admin.sh
+./deploy/reset-demo-data.sh --yes
+```
+
+访问：
+
+```text
+http://<服务器IP>:26000/blogin.html
+```
+
+### 4. 常用命令
+
+```bash
+docker compose ps                       # 查看状态和健康检查
+docker compose logs -f app              # 应用日志
+docker compose restart app              # 只重启应用
+docker compose build app && docker compose up -d app   # 拉代码后重新构建上线
+```
+
+## 定期重置演示数据
+
+一条命令即可把系统恢复到演示初始状态：
+
+```bash
+./deploy/reset-demo-data.sh --yes
+```
+
+这条命令会：
+
+1. 检查存在管理员，缺失就中止（不会创建默认密码账号）。
+2. 停止 `app` 容器，避免重置期间写入。
+3. 删除普通用户，重建业务表，导入 `sql/demo-data.sql`。
+4. 清理 Redis 活动详情缓存和 RabbitMQ 里残留的抽奖消息。
+5. 执行 `sql/verify-demo-data.sql` 校验，通过后重新启动 `app`。
+
+管理员的 id、姓名、邮箱、手机号密文、密码摘要、更新时间全部保留；重置不会再出现 `12345678` 这类默认密码。校验失败时 `app` 保持停止，方便排查。
+
+每天凌晨 4 点自动重置：
+
+```cron
+0 4 * * * cd /opt/lottery-system && ./deploy/reset-demo-data.sh --yes >> /var/log/lottery-reset.log 2>&1
+```
+
+运行脚本的账号需要在 `docker` 组里。
+
+### 演示数据内容
+
+```text
+普通用户    20 人（id 9001-9020，手机号以项目 AES key 加密存储）
+奖品        6 个，图片为项目内相对路径 /pic/demo/*.svg
+活动 201    进行中，6 个奖项全部待抽取，可直接现场演示
+活动 202    已结束，13 条中奖记录，用于演示中奖名单和分享链接
+活动 203    进行中，二等奖已抽完、三等奖待抽取，用于演示中途状态
+```
+
+奖品图片放在：
+
+```text
+src/main/resources/static/pic/demo
+```
+
+数据库只保存相对 URL，图片随项目一起打包，不依赖 `uploads/` 目录，删除项目目录不会留下其他环境的文件。
 
 ## 前端页面入口
 

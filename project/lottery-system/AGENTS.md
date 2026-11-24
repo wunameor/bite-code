@@ -35,6 +35,7 @@ Redis
 RabbitMQ
 JWT
 静态 HTML + jQuery
+Docker Compose（云服务器部署）
 ```
 
 ## 必读文档
@@ -91,11 +92,39 @@ E2E 独立端口：
 mvn spring-boot:run "-Dspring-boot.run.arguments=--server.port=18080"
 ```
 
+云服务器构建和启动（构建在服务器上完成，不上传 jar）：
+
+```bash
+cp .env.example .env   # 必填 4 个密码类变量和 JWT_SECRET
+docker compose build app
+docker compose up -d
+```
+
+首次部署初始化管理员：
+
+```bash
+ADMIN_EMAIL=you@example.com ADMIN_PHONE=13800000000 ./deploy/bootstrap-admin.sh
+```
+
+重置演示数据（可手动执行，也建议放进 cron）：
+
+```bash
+./deploy/reset-demo-data.sh --yes
+```
+
+只校验演示数据是否有效：
+
+```bash
+mysql -u root -p -D lottery_system < sql/verify-demo-data.sql
+```
+
 注意：
 
 - `EmailCodeServiceTest#send` 可能真实发送邮件，不要默认运行。
 - 如果 RabbitMQ 或 Redis 不可用，相关集成测试可能失败。
 - 8080 上的旧实例需要重启后才能加载最新代码。
+- 公网访问端口是 `26000`，由 `.env` 的 `APP_PORT` 控制。
+- 不要在本地库上直接跑 `reset-demo-data.sh`，会删除普通用户和业务数据；验证请先建临时库。
 
 ## 目录边界
 
@@ -113,6 +142,23 @@ common                          # 公共基础设施
 controller                      # HTTP 接口层
 mapper                          # 数据访问层
 service                         # 业务服务层
+```
+
+部署相关文件：
+
+```text
+Dockerfile                      # 容器内构建镜像
+docker-compose.yml              # MySQL / Redis / RabbitMQ / 应用编排
+.env.example                    # 环境变量模板，真实 .env 不提交
+deploy/maven-settings.xml       # 服务器构建用 Maven 镜像配置
+deploy/bootstrap-admin.sh       # 首次创建管理员
+deploy/reset-demo-data.sh       # 重置演示数据
+sql/schema.sql                  # 表结构唯一入口
+sql/demo-data.sql               # 演示数据
+sql/reset-demo-data.sql         # 重置步骤一：清业务表和临时用户
+sql/verify-demo-data.sql        # 数据有效性校验
+sql/init-admin.sql              # 仅本地开发，含默认弱密码
+sql/lottery_system.sql          # 历史整库脚本，含 DROP DATABASE，不再使用
 ```
 
 ## 分层规则
@@ -388,7 +434,21 @@ draw_request
 - `winning_record` 有 `(winner_id, activity_id)` 唯一键。
 - 一个用户在一个活动内最多中一个奖品。
 - 手机号通过 `EncryptTypeHandler` 加密存储。
-- 图片只保存相对 URL，例如 `/uploads/prize/yyyy/MM/dd/xxx.png`。
+- 图片只保存相对 URL，例如 `/uploads/prize/yyyy/MM/dd/xxx.png`；演示数据使用项目内静态资源 `/pic/demo/*.svg`。
+
+表结构入口：
+
+```text
+sql/schema.sql
+```
+
+新增表或字段必须同步 `sql/schema.sql`，并在临时库执行一次重置校验。`sql/lottery_system.sql` 会 `DROP DATABASE`，只作为历史留档保留。
+
+演示用户手机号密文由 MySQL 生成，与 `EncryptTypeHandler` 一致：
+
+```sql
+LOWER(HEX(AES_ENCRYPT('13900000001', '1234567890abcdef')))
+```
 
 ## 鉴权约定
 
@@ -404,6 +464,8 @@ Authorization: Bearer <token>
 token
 user_token
 ```
+
+签名密钥通过环境变量 `JWT_SECRET` 注入（Base64，解码后至少 32 字节）。未注入时 `JwtUtil` 回退到仓库默认值，只有本地开发可以这样；云上 compose 用 `${JWT_SECRET:?}` 强制要求设置，否则启动失败。
 
 公开接口：
 
@@ -469,6 +531,88 @@ service/enums/FileSceneEnum.java
 
 添加枚举值。
 
+## 配置与部署约定
+
+配置分三层，不要把环境差异写回 `application.yaml`：
+
+```text
+application.yaml         # 公共：邮件、上传限制、补偿阈值、日志滚动、MyBatis-Plus
+application-local.yaml   # 本地：127.0.0.1、StdOutImpl 打印 SQL、补偿默认关闭
+application-cloud.yaml   # 云上：容器服务名、NoLoggingImpl、补偿默认开启、/app 路径
+```
+
+profile 选择在 `application.yaml` 用 `spring.profiles.default: local`，云上由 compose 注入 `SPRING_PROFILES_ACTIVE=cloud`。
+
+连接信息一律通过环境变量注入：
+
+```text
+DB_HOST DB_PORT DB_NAME DB_USERNAME DB_PASSWORD
+REDIS_HOST REDIS_PORT
+RABBITMQ_HOST RABBITMQ_PORT RABBITMQ_USERNAME RABBITMQ_PASSWORD RABBITMQ_VHOST
+COMPENSATION_ENABLED
+JWT_SECRET
+MAIL_USERNAME MAIL_PASSWORD
+```
+
+密钥规则：
+
+- 真实密钥只写在服务器 `.env`，文件权限 `600`，不提交。
+- 仓库里只有 `.env.example` 占位值。
+- `JWT_SECRET` 在 compose 中是必填项；`JwtUtil` 读取该变量，未设置时使用仓库默认值，仅允许本地使用。
+- `deploy/bootstrap-admin.sh` 只生成密码摘要，明文不落库、不落盘、不进日志。
+
+## 演示数据约定
+
+表结构唯一入口是 `sql/schema.sql`，只使用 `CREATE TABLE IF NOT EXISTS`，可重复执行。改动 DO、Mapper 或表结构时必须同步该文件。
+
+重置流程固定四步：
+
+```text
+1. sql/reset-demo-data.sql    删除普通用户（identity <> '0'）并 DROP 业务表
+2. sql/schema.sql             重建业务表
+3. sql/demo-data.sql          导入演示数据
+4. sql/verify-demo-data.sql   校验；结果为空才算通过
+```
+
+管理员保护规则：
+
+- 管理员行 `identity = '0'` 永远不删除、不更新，id、密码摘要、邮箱、手机号全部保留。
+- 重置脚本发现没有管理员时直接中止，不会创建默认密码账号。
+- `sql/init-admin.sql` 只在本地开发使用；服务器一律用 `deploy/bootstrap-admin.sh`。
+- 演示用户 id 固定占用 9001-9020，重置脚本会检查管理员 id 是否落在该区间。
+
+演示数据必须满足的业务不变式：
+
+```text
+参与人数 >= 奖品总数
+DRAWN 奖品的中奖人数 == prize_amount
+PENDING 奖品不能有中奖记录
+已完成活动的活动人员不能残留 PENDING
+每条中奖记录的 winner 必须是该活动的 WINNER 人员
+中奖记录的 (winner_id, activity_id) 在库内唯一
+手机号必须是 AES_ENCRYPT 后的 hex，可用 AES_DECRYPT 反解校验
+```
+
+演示奖品图片放在：
+
+```text
+src/main/resources/static/pic/demo
+```
+
+数据库只写相对路径 `/pic/demo/*.svg`，不要写到 `/uploads/...`：静态资源随镜像打包，删除项目目录不会在其他环境留下文件。
+
+新增或修改演示数据时，同步更新 `sql/demo-data.sql` 和 `sql/verify-demo-data.sql`，并在临时库上验证：
+
+```bash
+mysql -u root -p -e "CREATE DATABASE lottery_check CHARACTER SET utf8mb4;"
+mysql -u root -p lottery_check < sql/schema.sql
+mysql -u root -p lottery_check < sql/demo-data.sql
+mysql -u root -p lottery_check < sql/verify-demo-data.sql   # 必须无输出
+mysql -u root -p -e "DROP DATABASE lottery_check;"
+```
+
+部署端口约定：应用对外 `26000`（容器内 8080），MySQL、Redis、RabbitMQ 不映射宿主机端口。
+
 ## 修改检查清单
 
 改代码前：
@@ -494,6 +638,18 @@ mvn -q clean test "-Dtest=!EmailCodeServiceTest"
 docs/project-structure.md
 AGENTS.md
 ```
+
+5. 涉及表结构或演示数据时，在临时库跑一遍：
+
+```bash
+mysql -u root -p -e "DROP DATABASE IF EXISTS lottery_system_reset_check; CREATE DATABASE lottery_system_reset_check CHARACTER SET utf8mb4;"
+mysql -u root -p lottery_system_reset_check < sql/schema.sql
+mysql -u root -p lottery_system_reset_check < sql/demo-data.sql
+mysql -u root -p lottery_system_reset_check < sql/verify-demo-data.sql
+mysql -u root -p -e "DROP DATABASE lottery_system_reset_check;"
+```
+
+`verify-demo-data.sql` 必须没有任何输出。
 
 ## 禁止事项
 
