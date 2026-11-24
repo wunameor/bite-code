@@ -92,26 +92,19 @@ E2E 独立端口：
 mvn spring-boot:run "-Dspring-boot.run.arguments=--server.port=18080"
 ```
 
-云服务器构建和启动（构建在服务器上完成，不上传 jar）：
+云服务器一键部署（构建在服务器上完成，不上传 jar）：
 
 ```bash
-cp .env.example .env   # 必填 4 个密码类变量和 JWT_SECRET
-docker compose build app
-docker compose up -d
+bash <(curl -fsSL https://gitee.com/wunameor/bite-code/raw/master/project/lottery-system/deploy/install-server.sh)
 ```
 
-服务器上是 monorepo，只稀疏检出子目录，不整仓 clone：
+- `deploy/install-server.sh`：稀疏检出 monorepo 到 `/var/lib/lottery-system/repo`，创建软链接 `/www/bite/lottery-system`，再调用 `deploy-server.sh`。
+- `deploy/deploy-server.sh`：生成 `.env`（已存在不覆盖）、构建镜像、`docker compose up -d`、等待健康检查、首次创建管理员并导入演示数据。
+- 部署路径固定为 `/www/bite/lottery-system`，所有 compose 和 `deploy/*.sh` 命令都在该目录执行。
+- 更新代码：`cd /www/bite/lottery-system && ./deploy/install-server.sh`；需要重置演示数据时加 `--reset-demo`。
+- 已有 `.env`、管理员和业务数据不会被自动覆盖或重置。
 
-```bash
-git clone --depth 1 --filter=blob:none --sparse \
-  https://gitee.com/wunameor/bite-code.git /opt/bite-code
-cd /opt/bite-code
-git sparse-checkout set project/lottery-system
-```
-
-部署目录固定为 `/opt/bite-code/project/lottery-system`，所有 compose 和 `deploy/*.sh` 命令都在该目录执行。Gitee 不支持 `--filter` 时去掉该参数，改用 `git sparse-checkout init --cone` 再 `set`。
-
-首次部署初始化管理员：
+首次部署初始化管理员（`deploy-server.sh` 已自动处理，也可单独执行）：
 
 ```bash
 ADMIN_EMAIL=you@example.com ADMIN_PHONE=13800000000 ./deploy/bootstrap-admin.sh
@@ -162,6 +155,8 @@ Dockerfile                      # 容器内构建镜像
 docker-compose.yml              # MySQL / Redis / RabbitMQ / 应用编排
 .env.example                    # 环境变量模板，真实 .env 不提交
 deploy/maven-settings.xml       # 服务器构建用 Maven 镜像配置
+deploy/install-server.sh        # 服务器首次安装/更新：稀疏检出并调用 deploy-server.sh
+deploy/deploy-server.sh         # 一键部署：.env、构建、启动、管理员、演示数据
 deploy/bootstrap-admin.sh       # 首次创建管理员
 deploy/reset-demo-data.sh       # 重置演示数据
 sql/schema.sql                  # 表结构唯一入口

@@ -93,6 +93,8 @@ project/lottery-system
 ├── .gitignore                          # Git 忽略规则：target、logs、uploads、.env、IDE 配置等
 ├── Dockerfile                          # 多阶段构建：容器内 mvn package -> temurin JRE 运行
 ├── deploy                              # 部署与运维脚本
+│   ├── install-server.sh               # 服务器首次安装/更新：稀疏检出 + 固定路径 + 调用一键部署
+│   ├── deploy-server.sh                # 一键部署：.env、构建、启动、管理员、演示数据
 │   ├── bootstrap-admin.sh              # 首次部署创建管理员，仅在无管理员时插入
 │   ├── maven-settings.xml              # 构建期 Maven 国内镜像配置
 │   └── reset-demo-data.sh              # 重置演示数据，保留管理员
@@ -1206,25 +1208,44 @@ MAIL_USERNAME/MAIL_PASSWORD   # 可选，不配则中奖邮件通知进入 DLQ
 
 演示奖品图片不放 `uploads/`，而是放在 `src/main/resources/static/pic/demo`，数据库里保存 `/pic/demo/*.svg` 相对路径；删除项目目录和卷即可完全清理，不会污染其他环境。
 
-### 14.5 服务器代码检出
+### 14.5 服务器代码检出与一键部署
 
-仓库是 monorepo，服务器只检出当前子项目：
+仓库是 monorepo，服务器只检出当前子项目，并把它固定映射到 `/www/bite/lottery-system`：
 
 ```bash
-git clone --depth 1 --filter=blob:none --sparse \
-  https://gitee.com/wunameor/bite-code.git /opt/bite-code
-cd /opt/bite-code
-git sparse-checkout set project/lottery-system
+bash <(curl -fsSL https://gitee.com/wunameor/bite-code/raw/master/project/lottery-system/deploy/install-server.sh)
 ```
 
-- 部署目录固定为 `/opt/bite-code/project/lottery-system`。
-- `git pull` 只更新该子目录，其他子项目不会出现在工作区。
-- Gitee 若拒绝 `--filter=blob:none`，去掉该参数，改用 `git sparse-checkout init --cone` 后执行 `git sparse-checkout set project/lottery-system`。
-- `.env` 被 `.gitignore` 忽略，不会随检出带过来。
-- 定时重置的 cron 路径必须指向该子目录：
+目录关系：
+
+```text
+/www/bite/lottery-system        -> /var/lib/lottery-system/repo/project/lottery-system
+/var/lib/lottery-system/repo    # 稀疏检出的 monorepo 缓存
+```
+
+`deploy/install-server.sh` 负责：
+
+- 首次：`git clone --depth 1 --filter=blob:none --sparse` 到缓存目录，再 `git sparse-checkout set project/lottery-system`；
+- 后续：`git pull --ff-only` 更新缓存；
+- 创建或修复固定路径软链接；
+- 调用 `deploy/deploy-server.sh`，参数原样传递。
+
+Gitee 若拒绝 `--filter=blob:none`，脚本会自动退回不带 filter 的浅克隆。
+
+`deploy/deploy-server.sh` 负责：
+
+1. `.env` 不存在时生成随机密码和 `JWT_SECRET`，权限 600；已存在不覆盖；
+2. `docker compose build app`；
+3. `docker compose up -d`；
+4. 等待 MySQL 和 app 健康检查；
+5. 执行 `sql/schema.sql` 确保表结构存在；
+6. 没有管理员时交互创建，非交互模式读 `ADMIN_EMAIL` / `ADMIN_PHONE` / `ADMIN_PASSWORD`；
+7. 首次部署导入演示数据；后续默认跳过，`--reset-demo` 才重置。
+
+定时重置的 cron 路径：
 
 ```cron
-0 4 * * * cd /opt/bite-code/project/lottery-system && ./deploy/reset-demo-data.sh --yes >> /var/log/lottery-reset.log 2>&1
+0 4 * * * cd /www/bite/lottery-system && ./deploy/reset-demo-data.sh --yes >> /var/log/lottery-reset.log 2>&1
 ```
 
 ## 15. 测试目录说明

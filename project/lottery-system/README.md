@@ -229,65 +229,73 @@ ADMIN_PASSWORD='你的密码' \
 
 对外只暴露应用端口 `26000`，MySQL、Redis、RabbitMQ 只在容器内部网络里，不映射到宿主机。
 
-### 1. 准备代码和配置
+### 1. 一条命令部署
 
-仓库是 monorepo，服务器上只检出 `project/lottery-system` 子目录，不下载其他子项目：
-
-```bash
-git clone --depth 1 --filter=blob:none --sparse \
-  https://gitee.com/wunameor/bite-code.git /opt/bite-code
-cd /opt/bite-code
-git sparse-checkout set project/lottery-system
-
-cd project/lottery-system
-cp .env.example .env
-chmod 600 .env
-vi .env
-```
-
-GitHub 把地址换成 `https://github.com/wunameor/bite-code.git`。
-
-如果 Gitee 不支持 `--filter=blob:none`，改用下面的兜底命令（首次会下载整个仓库 HEAD，但工作区仍然只有这个子目录）：
+仓库是 monorepo，脚本只检出 `project/lottery-system`，并把它固定映射到 `/www/bite/lottery-system`：
 
 ```bash
-git clone --depth 1 https://gitee.com/wunameor/bite-code.git /opt/bite-code
-cd /opt/bite-code
-git sparse-checkout init --cone
-git sparse-checkout set project/lottery-system
+bash <(curl -fsSL https://gitee.com/wunameor/bite-code/raw/master/project/lottery-system/deploy/install-server.sh)
 ```
 
-之后所有部署命令都在 `/opt/bite-code/project/lottery-system` 执行。`.env` 被 `.gitignore` 忽略，不会随仓库带过来，必须自己创建。
+脚本会依次完成：
 
-确认当前只检出该目录：
+1. 稀疏检出仓库到 `/var/lib/lottery-system/repo`，不下载其他子项目；
+2. 创建软链接 `/www/bite/lottery-system` 指向 `project/lottery-system`；
+3. 生成 `.env`（随机密码 + `JWT_SECRET`，权限 600；已存在时绝不覆盖）；
+4. 构建镜像、启动 MySQL / Redis / RabbitMQ / app，并等待健康检查；
+5. 首次部署时交互创建管理员，并导入演示数据。
 
-```bash
-git sparse-checkout list
-```
-
-`.env` 必须修改：
+目录关系：
 
 ```text
-MYSQL_ROOT_PASSWORD   MySQL root 密码
-DB_PASSWORD           应用连接 MySQL 的密码
-RABBITMQ_PASSWORD     RabbitMQ 密码
-JWT_SECRET            JWT 密钥，生成：openssl rand -base64 32
-APP_PORT              公网端口，默认 26000
+/www/bite/lottery-system        -> /var/lib/lottery-system/repo/project/lottery-system
+/var/lib/lottery-system/repo    # 稀疏检出的 monorepo，只下载 lottery-system 子目录
 ```
 
-`JWT_SECRET` 未设置时容器会启动失败，避免使用仓库里的默认密钥。
+`/www/bite/lottery-system` 是软链接，真正的代码在 `/var/lib/lottery-system/repo`。不要删除这个缓存目录，否则固定路径会失效。
 
-### 2. 在服务器上构建并启动
+不想直接执行远程脚本时，可以先下载检查：
 
-Maven 构建在容器内完成，本地不需要装 JDK，也不需要上传 jar：
+```bash
+curl -fsSL https://gitee.com/wunameor/bite-code/raw/master/project/lottery-system/deploy/install-server.sh -o /tmp/install-server.sh
+less /tmp/install-server.sh
+bash /tmp/install-server.sh
+```
+
+GitHub 把 raw 地址换成：
+
+```text
+https://raw.githubusercontent.com/wunameor/bite-code/master/project/lottery-system/deploy/install-server.sh
+```
+
+脚本首次生成的 `.env` 已经在 `/www/bite/lottery-system/.env`，需要调整端口或邮件配置时直接编辑它：
+
+```text
+MYSQL_ROOT_PASSWORD   MySQL root 密码（自动生成）
+DB_PASSWORD           应用连接 MySQL 的密码（自动生成）
+RABBITMQ_PASSWORD     RabbitMQ 密码（自动生成）
+JWT_SECRET            JWT 密钥（自动生成，Base64，解码后 32 字节）
+APP_PORT              公网端口，默认 26000
+MAIL_USERNAME         可选，中奖邮件发件邮箱
+MAIL_PASSWORD         可选，邮箱授权码
+```
+
+`JWT_SECRET` 为空时容器会启动失败，避免使用仓库里的默认密钥。
+
+### 2. 手动构建和启动（可选）
+
+`install-server.sh` 已经自动完成构建和启动。需要单独操作时，在 `/www/bite/lottery-system` 执行：
 
 ```bash
 docker compose build app
 docker compose up -d
 ```
 
-依赖下载走 `deploy/maven-settings.xml` 里的阿里云镜像，Maven 仓库使用 BuildKit 缓存挂载，第二次构建不会重复下载。
+Maven 构建在容器内完成，不需要在服务器装 JDK，也不需要上传 jar。依赖下载走 `deploy/maven-settings.xml` 里的阿里云镜像，Maven 仓库使用 BuildKit 缓存挂载，第二次构建不会重复下载。
 
-### 3. 初始化管理员和演示数据
+### 3. 初始化管理员和演示数据（可选）
+
+首次部署由 `deploy-server.sh` 交互完成。单独执行时：
 
 ```bash
 ADMIN_EMAIL=you@example.com ADMIN_PHONE=13800000000 ./deploy/bootstrap-admin.sh
@@ -302,7 +310,7 @@ http://<服务器IP>:26000/blogin.html
 
 ### 4. 常用命令
 
-以下命令都在 `/opt/bite-code/project/lottery-system` 执行：
+以下命令都在 `/www/bite/lottery-system` 执行：
 
 ```bash
 docker compose ps                       # 查看状态和健康检查
@@ -310,18 +318,26 @@ docker compose logs -f app              # 应用日志
 docker compose restart app              # 只重启应用
 ```
 
-拉取代码并重新构建上线：
+拉取代码、重新构建并上线：
 
 ```bash
-cd /opt/bite-code
-git pull --ff-only
-
-cd project/lottery-system
-docker compose build app
-docker compose up -d app
+cd /www/bite/lottery-system
+./deploy/install-server.sh
 ```
 
-稀疏检出配置会保存在 `.git/info/sparse-checkout`，`git pull` 只更新 `project/lottery-system`，其他子项目不会被检出。
+`install-server.sh` 会更新 `/var/lib/lottery-system/repo` 缓存，再调用 `deploy-server.sh`。已有 `.env`、管理员和业务数据不会被覆盖；需要重置演示数据时：
+
+```bash
+./deploy/install-server.sh --reset-demo
+```
+
+也可以直接在软链接目录里操作 Git，效果相同：
+
+```bash
+cd /www/bite/lottery-system
+git pull --ff-only
+./deploy/deploy-server.sh
+```
 
 ## 定期重置演示数据
 
@@ -344,7 +360,7 @@ docker compose up -d app
 每天凌晨 4 点自动重置：
 
 ```cron
-0 4 * * * cd /opt/bite-code/project/lottery-system && ./deploy/reset-demo-data.sh --yes >> /var/log/lottery-reset.log 2>&1
+0 4 * * * cd /www/bite/lottery-system && ./deploy/reset-demo-data.sh --yes >> /var/log/lottery-reset.log 2>&1
 ```
 
 运行脚本的账号需要在 `docker` 组里。
