@@ -1,5 +1,5 @@
-# syntax=docker/dockerfile:1.7
 # 在云服务器上直接构建：docker compose build app
+# 不声明 # syntax 前端镜像：避免构建时额外访问 Docker Hub 拉取 dockerfile frontend。
 # Maven 依赖通过 deploy/maven-settings.xml 走国内镜像，并用 BuildKit 缓存挂载复用本地仓库。
 
 FROM maven:3.9-eclipse-temurin-17 AS build
