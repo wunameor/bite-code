@@ -1,49 +1,15 @@
 spring:
   application:
     name: lottery-system
+  # 不指定 SPRING_PROFILES_ACTIVE 时默认走本地配置；云服务器由 compose 注入 cloud
   profiles:
-    active: dev
-  datasource:
-    url: jdbc:mysql://127.0.0.1:3306/lottery_system?characterEncoding=utf8&useSSL=true
-    username: root
-    password: "${DB_PASSWORD:123456}"
-    driver-class-name: com.mysql.cj.jdbc.Driver
+    default: local
   servlet:
     multipart:
       max-file-size: 5MB
       max-request-size: 10MB
-  data:
-    redis:
-      host: 127.0.0.1
-      port: 6379
-      timeout: 60s #连接空闲超过N(s秒、ms毫秒)后关闭，0为禁用，这里配置值和tcp-keepalive值一致
-      lettuce:
-        pool:
-          max-active: 8  #允许最大连接数
-          max-idle: 8 #最大空闲连接数, 默认8
-          min-idle: 0  #最小空闲连接数
-          max-wait: 5s  #请求获取连接等待时间
-  rabbitmq:
-    host: ${RABBITMQ_HOST:127.0.0.1}
-    port: ${RABBITMQ_PORT:5672}
-    username: ${RABBITMQ_USERNAME:lottery}
-    password: ${RABBITMQ_PASSWORD:lottery}
-    virtual-host: ${RABBITMQ_VHOST:lottery}
-    connection-timeout: 3s
-    listener:
-      simple:
-        # 消费失败时不重新入队，交给死信队列留痕
-        default-requeue-rejected: false
-        # 瞬时异常在容器内重试；重试用尽后拒绝消息并进入 DLQ，
-        # draw_request 的补偿任务再用独立配置做长时间兜底。
-        retry:
-          enabled: true
-          initial-interval: 1s
-          multiplier: 2
-          max-interval: 10s
-          max-retries: 3
   # QQ 邮箱 SMTP。授权码获取：QQ邮箱 -> 设置 -> 账号 -> 开启「POP3/SMTP 服务」-> 短信验证 -> 16 位授权码
-  # 凭证不要写死在文件里，在 IDEA 的 Run/Debug Configuration -> Environment variables 中配置：
+  # 凭证不要写死在文件里，本地在运行配置里配置，云服务器写在 .env：
   #   MAIL_USERNAME=你的QQ号@qq.com
   #   MAIL_PASSWORD=上一步拿到的授权码（不是 QQ 密码）
   mail:
@@ -68,14 +34,12 @@ lottery:
   # 抽奖异步任务补偿：PENDING 超时重投，PROCESSING 超时重置重投
   draw:
     compensation:
-      # 本地调试默认关闭，避免定时扫描刷 SQL 日志；需要验证异步补偿时改为 true。
       enabled: false
       max-attempts: 3
       pending-delay: 10s
       processing-timeout: 5m
       scan-interval: 30s
   upload:
-    dir: ${user.dir}/uploads
     url-prefix: /uploads
     max-size: 5MB
     allowed-extensions:
@@ -86,21 +50,14 @@ lottery:
       - webp
 
 logging:
-  file:
-    name: logs/springboot.log
   logback:
     rollingpolicy:
       max-file-size: 10MB
       file-name-pattern: ${LOG_FILE}.%d{yyyy-MM-dd}.%i
-#  level:
-#    root: info
-#    com.example.demo: debug
-
 
 mybatis-plus:
   type-handlers-package: com.wunamor.lotterysystem.mapper.handler
   # 设置 Mybatis 的 xml 保存路径
   mapper-locations: classpath:mapper/*Mapper.xml
   configuration:
-    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl  # 配置打印 MyBatis 执行的 SQL
     map-underscore-to-camel-case: true  #自动驼峰转换
