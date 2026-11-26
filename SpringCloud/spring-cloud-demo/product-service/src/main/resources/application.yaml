@@ -1,3 +1,21 @@
+server:
+  port: 9090
 spring:
   application:
     name: product-service
+  datasource:
+    url: jdbc:mysql://127.0.0.1:3306/cloud_product?characterEncoding=utf8&useSSL=true
+    username: root
+    password: 123456
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jackson:
+    date-format: yyyy-MM-dd HH:mm:ss # 日期格式
+    time-zone: GMT+8 # 东八区
+  profiles:  #多平台配置
+    active: dev
+mybatis-plus:
+  type-handlers-package: com.wunamor.lotterysystem.mapper.handler
+  # 设置 Mybatis 的 xml 保存路径
+  mapper-locations: classpath:mapper/*Mapper.xml
+  configuration:
+    map-underscore-to-camel-case: true  #自动驼峰转换
