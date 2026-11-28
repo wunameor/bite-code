@@ -1,0 +1,39 @@
+server:
+  port: 8081 # 原 8080 与 Nacos 控制台端口冲突，改为 8081
+spring:
+  application:
+    name: order-service
+  config:
+    # SCA 2025.1.0.0 已移除 bootstrap，配置中心通过 config.import 引入
+    # optional 表示 Nacos 上没有该配置时仍可启动
+    import: optional:nacos:${spring.application.name}.yaml
+  cloud:
+    nacos:
+      discovery:
+        # Nacos 3.x 主端口 8848，客户端会自动使用 9848 gRPC 端口
+        server-addr: 127.0.0.1:8848
+        # 本地学习已关闭 Nacos 鉴权，不需要用户名密码
+        # 本机多网卡时显式指定注册 IP，避免注册到虚拟网卡
+        ip: 127.0.0.1
+        cluster-name: HZ
+      config:
+        server-addr: 127.0.0.1:8848
+        file-extension: yaml
+    loadbalancer:
+      nacos:
+        enabled: true
+  datasource:
+    url: jdbc:mysql://127.0.0.1:3306/cloud_order?characterEncoding=utf8&useSSL=true
+    username: root
+    password: 123456
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jackson:
+    date-format: yyyy-MM-dd HH:mm:ss # 日期格式
+    time-zone: GMT+8 # 东八区
+  profiles: # 多平台配置
+    active: dev
+mybatis-plus:
+  # 设置 Mybatis 的 xml 保存路径
+  mapper-locations: classpath:mapper/*Mapper.xml
+  configuration:
+    map-underscore-to-camel-case: true # 自动驼峰转换
